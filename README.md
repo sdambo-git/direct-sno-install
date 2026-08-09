@@ -376,6 +376,12 @@ subnet. Options, easiest first:
 That's it — this is now a real, independent SNO cluster running in your
 Air simulation.
 
+## Scripts reference
+
+See `scripts/SCRIPTS.md` for a full index of every script in `scripts/`
+(including the standalone/alternative-path and read-only diagnostic ones
+not covered step-by-step above) and what each one does.
+
 ## About `scripts/air_common.py`
 
 `scripts/air_common.py` is a shared helper module — a small internal
