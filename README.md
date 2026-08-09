@@ -55,6 +55,14 @@ entirely defaults it to **on**, which automatically connects the node's
 `eth0` to the OOB network with no explicit link needed. That single change
 is enough — no other topology fields need to differ.
 
+Note there's a second, unrelated way to end up with the exact same
+`169.254.x.x` symptom even *after* switching to the OOB network: if
+`topology.json` pins a `management_mac` that doesn't match what Air
+actually presents, DHCP fails and the OS self-assigns a link-local address
+as a fallback (RFC 3927 APIPA) — same address range, completely different
+cause (a stale pinned MAC, not the wrong link type). See "Important: don't
+pin `management_mac`" below if you hit `169.254.x.x` again after this fix.
+
 One consequence: you won't know the node's actual IP until after it boots
 (it's DHCP-assigned from the `192.168.200.0/24` pool based on MAC). Check it
 either from the Assisted Installer's Host discovery table once the columns
@@ -85,6 +93,14 @@ so the ssh command is ready and waiting by the time you get to Step 5 — it's
 not a blocker for getting the install itself to complete either way.
 
 ## Important: don't pin `management_mac` in `topology.json`
+
+This is the *other* way to end up with a rejected `169.254.x.x` machine
+network — see the note at the end of the OOB-network section above. That
+section's fix (switching from `"outbound"` to the OOB network) is about
+picking the right network entirely; this one is about a pinned MAC breaking
+DHCP *within* an already-correct OOB setup, causing the node to
+self-assign a link-local address as a fallback instead of getting its real
+`192.168.200.x` lease.
 
 We hit this for real too: an earlier version of `topology.json` pinned a
 specific MAC via `"management_mac": "48:B0:2D:00:00:12"` on the
