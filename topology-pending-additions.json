@@ -1,0 +1,38 @@
+{
+    "_readme": "Not a valid Air import manifest on its own — this is a holding pen for node definitions removed from topology.json, kept here so they aren't lost. When ready to add them back: merge the objects under \"nodes\" below into topology.json's content.nodes, delete this _readme key from what you paste, then do the required delete + fresh re-import (see README.md's 'Adding a worker node?' section for why it has to be a fresh import, not a live patch).",
+    "nodes": {
+        "sno-worker-1": {
+            "cpu": 16,
+            "memory": 65536,
+            "storage": 100,
+            "nic_model": "virtio",
+            "cpu_mode": "host-passthrough",
+            "cpu_options": [],
+            "secureboot": false,
+            "os": "blank-100g",
+            "storage_pci": null,
+            "pxehost": false,
+            "cdrom": "worker-discovery-iso",
+            "boot": ["hd", "cdrom"],
+            "features": {
+                "uefi": false
+            }
+        },
+        "client-host": {
+            "cpu": 2,
+            "memory": 4096,
+            "storage": 20,
+            "nic_model": "virtio",
+            "cpu_mode": "host-passthrough",
+            "cpu_options": [],
+            "secureboot": false,
+            "os": "generic/ubuntu2404",
+            "storage_pci": null,
+            "pxehost": false,
+            "boot": ["hd"],
+            "features": {
+                "uefi": false
+            }
+        }
+    }
+}
