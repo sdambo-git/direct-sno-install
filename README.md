@@ -61,6 +61,18 @@ either from the Assisted Installer's Host discovery table once the columns
 populate (they will now, since the address is a valid subnet), or from
 Air's node console.
 
+**Don't be alarmed if you see a `169.254.x.x` address while debugging
+`oob-mgmt-server` itself** — that's expected and unrelated to the fix above.
+`oob-mgmt-server`'s own `eth0` is Air's normal internal uplink (it's how
+Air manages that node), separate from the `192.168.200.0/24` OOB subnet it
+serves out to everyone else. Checking `ip a` on `oob-mgmt-server` you should
+see: `eth0` with a `169.254.x.x` address (normal, Air's internal uplink —
+ignore it) and `eth1` with `192.168.200.1` (the actual DHCP/gateway address
+for the OOB subnet — this is the healthy sign to look for). The address
+that actually matters for your install is the one DHCP hands out to
+`sno-cluster` itself (e.g. `192.168.200.2`), not anything on
+`oob-mgmt-server`'s `eth0`.
+
 Also worth knowing: this OOB network is still NAT'd/private — outbound
 internet access from the node works out of the box, but *inbound* access
 from outside Air (your own browser/`oc` hitting the API or console URLs
@@ -134,6 +146,17 @@ If you need to know the node's assigned MAC/IP after the fact (e.g. to
 debug DHCP yourself), read it back from the live node/interface via the API
 after the simulation is `ACTIVE` — don't try to pre-declare it in the
 manifest.
+
+**Confirmed fix**, from `oob-mgmt-server`'s DHCP log after dropping
+`management_mac` from the manifest: Air assigned its own MAC to the node's
+interface, and the DHCP reservation matched it immediately —
+
+```
+DHCPACK on 192.168.200.2 to 48:b0:2d:00:00:00
+```
+
+— `sno-cluster` got its real `192.168.200.2` OOB lease on the first try,
+instead of falling back to a link-local address.
 
 ## Important: boot order stays `["hd", "cdrom"]` — don't toggle it
 
