@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+
+# Contains a real quay.io credential (base64-wrapped plaintext auth) — never commit.
+scripts/seedgen.yaml
+
+# Contains a password hash for the 'core' user — excluded out of caution.
+scripts/set-core-user-password-machineconfig.yaml

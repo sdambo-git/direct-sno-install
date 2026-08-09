@@ -1,0 +1,60 @@
+{
+    "format": "JSON",
+    "ztp": null,
+    "content": {
+        "nodes": {
+            "sno-cluster": {
+                "cpu": 16,
+                "memory": 65536,
+                "storage": 100,
+                "nic_model": "virtio",
+                "cpu_mode": "host-passthrough",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "blank-100g",
+                "storage_pci": null,
+                "pxehost": false,
+                "cdrom": "dsxair-discovery-iso",
+                "boot": ["hd", "cdrom"],
+                "features": {
+                    "uefi": false
+                }
+            },
+            "sno-worker-1": {
+                "cpu": 16,
+                "memory": 65536,
+                "storage": 100,
+                "nic_model": "virtio",
+                "cpu_mode": "host-passthrough",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "blank-100g",
+                "storage_pci": null,
+                "pxehost": false,
+                "cdrom": "worker-discovery-iso",
+                "boot": ["hd", "cdrom"],
+                "features": {
+                    "uefi": false
+                }
+            },
+            "client-host": {
+                "cpu": 2,
+                "memory": 4096,
+                "storage": 20,
+                "nic_model": "virtio",
+                "cpu_mode": "host-passthrough",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": ["hd"],
+                "features": {
+                    "uefi": false
+                }
+            }
+        },
+        "links": []
+    },
+    "name": "sno-worker-cluster"
+}
