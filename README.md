@@ -281,18 +281,38 @@ already uploaded to Air *before* import (same rule as the single-SNO case
 above) — so a SNO + 1 worker topology needs **two** discovery ISOs attached,
 not one:
 
-- `sno-cluster`'s `cdrom` → `dsxair-discovery-iso`
-- `sno-worker-1`'s `cdrom` → `worker-discovery-iso`
+- `sno-cluster`'s `cdrom` → `dsxair-discovery-iso` (via `scripts/upload_discovery_iso.py`)
+- `sno-worker-1`'s `cdrom` → `worker-discovery-iso` (via `scripts/upload_worker_discovery_iso.py`)
 
-Run `scripts/upload_discovery_iso.py` twice — once per image name — editing
-`IMAGE_NAME` (and `ISO_PATH`, if you downloaded a separate ISO copy for the
-worker from the Assisted Installer console) between runs, so both names
-referenced by `topology.json`'s `cdrom` fields actually exist in Air by the
-time you get to Step 3. (Assisted Installer's discovery ISO is the same
-regardless of eventual node role — control-plane vs. worker is decided
-later, in Host discovery — so it's fine to upload the exact same ISO file
-twice under the two different Air image names if you don't have a second
-download handy.)
+Don't have a dedicated worker discovery ISO yet? You don't have to wait —
+`scripts/upload_worker_discovery_iso.py` uploads a **placeholder**
+under the name `worker-discovery-iso` (by default, it just reuses the same
+`dsxair-discovery-iso` file `sno-cluster` uses — a fully working discovery
+ISO, not a dummy one, since Assisted Installer's discovery ISO doesn't
+encode a role; control-plane vs. worker is decided later, in Host
+discovery). That's enough to satisfy Air's "the `cdrom` image must already
+exist at import time" rule and get a real, working worker node up right
+away:
+
+```bash
+python scripts/upload_worker_discovery_iso.py
+```
+
+When you later get a real, dedicated worker ISO, swap its content in
+**without touching `topology.json` or the live node** — the image keeps
+the same id/name throughout, so any node already referencing it just picks
+up the new content:
+
+```bash
+python scripts/upload_worker_discovery_iso.py --replace /path/to/real-worker-discovery.iso
+```
+
+(Under the hood this uses the Air SDK's `image.clear_upload()` +
+`image.upload()` pair — see
+[the SDK docs' Images example](https://docs.nvidia.com/air/sdk/latest/examples/images.html#Reset/clear-the-file-content-associated-with-an-Image).
+You'll still want to re-trigger discovery on `sno-worker-1` afterward — see
+`scripts/02_attach_discovery_iso.py` or the rebuild note above — since it
+already booted once from the old content.)
 
 ## Step 3 — Import the topology and boot the node
 

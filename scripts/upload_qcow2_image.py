@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 from air_sdk import AirApi
 from air_sdk.utils import wait_for_state
@@ -29,7 +30,9 @@ from air_sdk.utils import wait_for_state
 # --- Fill these in, or set the equivalent env vars instead --------------
 
 API_KEY = None  # e.g. "nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                # leave None to require AIR_API_KEY env var
+                # leave None to fall back to AIR_API_KEY / API_KEY_FILE below
+
+API_KEY_FILE = "~/.air_api_key.txt"  # used if API_KEY is None and AIR_API_KEY isn't set
 
 QCOW2_PATH = None  # e.g. "/data/sno-installed.qcow2"
                     # leave None to require QCOW2_PATH env var
@@ -53,9 +56,14 @@ CPU_ARCH = "x86"  # or "ARM" if applicable
 def get_api() -> AirApi:
     api_key = API_KEY or os.environ.get("AIR_API_KEY")
     if not api_key:
+        key_file = Path(API_KEY_FILE).expanduser()
+        if key_file.is_file():
+            api_key = key_file.read_text().strip()
+    if not api_key:
         raise SystemExit(
-            "No API key set. Fill in API_KEY at the top of this script, or "
-            "export AIR_API_KEY=nvapi-... before running."
+            "No API key set. Fill in API_KEY at the top of this script, "
+            "export AIR_API_KEY=nvapi-..., or save it to "
+            f"{API_KEY_FILE} before running."
         )
     return AirApi.with_api_key(api_key=api_key)
 
