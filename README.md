@@ -1,38 +1,74 @@
-# Regular (non-image-based) SNO install in NVIDIA DSX Air
+# OpenShift SNO on NVIDIA DSX Air
 
-This is a standard Single Node OpenShift install using the **Assisted
-Installer** discovery ISO from `console.redhat.com` — no seed image, no
-Lifecycle Agent, no `MachineConfig` partition tricks, no `cdrom`-swap
-sequence. One Air node, one boot, one install.
+Standard Single Node OpenShift install using an **Assisted Installer**
+discovery ISO on NVIDIA DSX / NVIDIA Air — no seed image, no Lifecycle
+Agent, no `MachineConfig` partition tricks, no `cdrom`-swap sequence. One
+Air node, one boot, one install.
 
-This is a separate, independent path from the image-based install (IBI)
-material in `../seed-cluster/` and the parent kit's root-level files. Use
-this if you just want a working SNO cluster in Air, not the seed-image
-factory/rapid-fanout workflow.
+This fork supports the **SNO-only** topology in `topology.json`. Multi-node
+Air topologies are still evolving upstream; do not treat them as ready here.
 
 ## Prerequisites
 
-- A Red Hat account with access to
-`console.redhat.com/openshift/assisted-installer`, and a pull secret
-from `console.redhat.com/openshift/install/pull-secret`.
-- An SSH key you want baked into the node.
-- An NVIDIA Air / DSX Air account with API access (`pip install nv-air-sdk`).
-Air auth is NGC-based: generate a Personal API Key at
-`org.ngc.nvidia.com/setup/api-keys` → **+ Generate Personal Key**, making
-sure **NVIDIA Air** is checked under **Services Included**. Pass it to the
-SDK via `AirApi.with_api_key(api_key="nvapi-...")` (Step 2 below). Your
-org's `air` role covers simulation/read image access; if uploading the
-ISO in Step 2 403s, you likely also need the `air-image-uploader` role.
-- One Air node sized to whatever you want to test against (there's no
-documented requirement to match a real bare-metal machine's CPU core
-count here — that constraint was specific to the seed-image workflow.
-  Match it anyway if you want your lab to behave like your real target
-  hardware for other reasons, but it's not a functional requirement now).
-  SNO minimums: 8 vCPU / 32 GB RAM / 100 GB disk. `topology.json` uses
-  `storage: 100` — check your org's storage budget before going higher
-  (`Provided storage amount of 120 GB exceeds the organization's budget of
-  100 GB` is the exact error you'll hit at import time if you do; the org
-  budget here is capped at 100 GB total).
+- Red Hat pull secret from
+  `console.redhat.com/openshift/install/pull-secret`.
+- Red Hat Assisted Installer offline token from
+  `cloud.redhat.com/openshift/token` (for the SaaS API / `ailib`).
+- An SSH public key to bake into the node.
+- NVIDIA Air / DSX Air API access (`nv-air-sdk`). Generate an NGC Personal
+  API Key at `org.ngc.nvidia.com/setup/api-keys` with **NVIDIA Air** under
+  **Services Included**. Your org's `air` role covers simulation/read image
+  access; ISO uploads may also need `air-image-uploader`.
+- `qemu-img` on PATH (to create the sparse `blank-100g` disk).
+- Python deps via `uv sync` from this repo (`aicli` + `nv-air-sdk`).
+
+SNO sizing in `topology.json`: 16 vCPU / 64 GB RAM / 100 GB disk. Check your
+org storage budget before raising `storage` — Air rejects imports that
+exceed the org cap (commonly 100 GB total).
+
+## Auth and inputs (env / files)
+
+Scripts resolve configuration from the environment (or `*_FILE` paths). Do
+not hardcode secrets in the repo.
+
+| Input | How to set |
+|---|---|
+| Air API key | `AIR_API_KEY` or `AIR_API_KEY_FILE` |
+| Assisted Installer offline token | `AI_OFFLINETOKEN` or `AI_OFFLINETOKEN_FILE` |
+| Pull secret | `PULL_SECRET_PATH` (path to JSON file) |
+| SSH public key | `SSH_PUBLIC_KEY_PATH` (default `~/.ssh/id_ed25519.pub` or `id_rsa.pub`) |
+| OpenShift version | `OCP_VERSION` (**required**, e.g. `4.19`) |
+| Cluster name | `CLUSTER_NAME` (default `sno-cluster`) |
+| Base DNS domain | `BASE_DNS_DOMAIN` (default `dsx.air.local`) |
+| Local discovery ISO path | `DISCOVERY_ISO_PATH` / `ISO_PATH` (default `.cache/dsxair-discovery.iso`) |
+
+Shared resolution lives in `scripts/env_config.py`.
+
+## Quick path (happy path)
+
+Run from `scripts/` (scripts import each other by module name):
+
+```bash
+cd scripts
+export AIR_API_KEY=...          # or AIR_API_KEY_FILE=...
+export AI_OFFLINETOKEN=...      # or AI_OFFLINETOKEN_FILE=...
+export PULL_SECRET_PATH=~/Downloads/pull-secret
+export OCP_VERSION=4.19
+
+uv run 00_create_discovery_iso.py
+uv run upload_discovery_iso.py
+uv run upload_blank_disk.py
+uv run 01_create_simulation.py
+uv run 06_wait_for_host_ipv4.py
+```
+
+Then finish networking / install in the Assisted Installer UI (Step 5
+below). Console-only ISO creation remains a valid fallback if you prefer
+not to use `ailib`.
+
+If `01_create_simulation.py` reports an existing or `INVALID` simulation
+named `sno-cluster`, delete it in the Air UI and re-run after the required
+images exist.
 
 ## Important: use Air's OOB network, not an `"outbound"` link — link-local IPs don't work here
 
@@ -67,7 +103,8 @@ One consequence: you won't know the node's actual IP until after it boots
 (it's DHCP-assigned from the `192.168.200.0/24` pool based on MAC). Check it
 either from the Assisted Installer's Host discovery table once the columns
 populate (they will now, since the address is a valid subnet), or from
-Air's node console.
+Air's node console. `scripts/06_wait_for_host_ipv4.py` polls until that
+OOB address appears.
 
 **Don't be alarmed if you see a `169.254.x.x` address while debugging
 `oob-mgmt-server` itself** — that's expected and unrelated to the fix above.
@@ -89,8 +126,8 @@ either open a Service (SSH/HTTPS on the node's port 6443/443) to expose it
 externally and point DNS at that, or SSH into `oob-mgmt-server` as a jump
 host and run `oc` from there. `scripts/01_create_simulation.py` now sets up
 that jump host automatically (see `scripts/04_create_jump_host_service.py`)
-so the ssh command is ready and waiting by the time you get to Step 5 — it's
-not a blocker for getting the install itself to complete either way.
+so the ssh command is ready and waiting by the time you get to verification —
+it's not a blocker for getting the install itself to complete either way.
 
 ## Important: don't pin `management_mac` in `topology.json`
 
@@ -177,10 +214,10 @@ instead of falling back to a link-local address.
 ## Important: boot order stays `["hd", "cdrom"]` — don't toggle it
 
 `topology.json` sets `"boot": ["hd", "cdrom"]` and an `"os": "blank-100g"`
-disk (a genuinely empty, unbootable qcow2 image — see `scripts/upload_qcow2_image.py`
-and the `qemu-img create -f qcow2 blank-100g.qcow2 100G` command used to make
-it) rather than a real OS image. This combination is intentional and is
-meant to be **left alone** through the entire install lifecycle:
+disk (a genuinely empty, unbootable qcow2 image — see
+`scripts/upload_blank_disk.py`) rather than a real OS image. This
+combination is intentional and is meant to be **left alone** through the
+entire install lifecycle:
 
 - **First boot:** firmware tries `hd` first, finds nothing bootable (the
   disk is genuinely blank), and falls through to `cdrom` automatically —
@@ -207,146 +244,112 @@ the disk itself, which is exactly what `node.rebuild()` does. Once you're
 on the blank-disk pattern, the `boot` list itself never needs to change
 again — only whether the disk behind `hd` is blank or installed.
 
-## Important: the CD-ROM image must exist *before* you import the topology
+## Important: Air images must exist *before* you import the topology
 
-We hit this for real: importing a topology with `"cdrom": "cdrom-nonbootable"`
-failed validation with `Image could not be found: cdrom-nonbootable` — that
-placeholder name from the public docs isn't a shared image available to
-every org, it doesn't exist in this one. The doc's own rule (*"A CD-ROM must
-be attached whenever the node's boot order includes cdrom"*) means the
-referenced image has to already exist in your org at **import time**, not
-after. So we're reordering the flow: get the real discovery ISO and upload
-it to Air *first*, then bake its actual name into `topology.json`, then
-import. No placeholder needed, no `cdrom`-swap needed either — Assisted
-Installer only ever needs the one ISO.
+Importing a topology that references missing `cdrom` / `os` image names
+fails validation and leaves the simulation `INVALID`. Both of these must
+already exist in your org at **import time**:
 
-`topology.json` otherwise reflects the real schema from this org's
-`rhel9.json` export rather than the generic public docs — flat
-`nic_model`/`cpu_mode`/`secureboot`, `"features": {"uefi": ...}` instead of
-`"advanced"`, and explicit per-link `"mac"` when links are used. `"os":
-"rhel"` — double-check that's the exact catalog name for your account with
-`next(api.images.list(search='rhel'))`.
+- `dsxair-discovery-iso` (discovery ISO uploaded from Step 1/2)
+- `blank-100g` (sparse blank qcow2 from `upload_blank_disk.py`)
 
-## Step 1 — Create the cluster in the Assisted Installer console
+`topology.json` uses Air's real schema shape (`nic_model` / `cpu_mode` /
+`secureboot`, `"features": {"uefi": ...}`) rather than older public-doc
+placeholders.
+
+## Step 1 — Create the Assisted Installer cluster and download the discovery ISO
+
+Preferred (SaaS API via `ailib`):
+
+```bash
+cd scripts
+uv run 00_create_discovery_iso.py
+```
+
+This creates a SNO cluster + infraenv on `api.openshift.com` and downloads
+the discovery ISO to `DISCOVERY_ISO_PATH` (default `.cache/dsxair-discovery.iso`).
+Re-runs reuse an existing same-named cluster/infraenv; pass `--force` to
+delete and recreate. To tear down only the Assisted Installer objects:
+
+```bash
+uv run delete_assisted_cluster.py --yes
+```
+
+### Optional fallback — Assisted Installer console
 
 1. Go to `console.redhat.com/openshift/assisted-installer/clusters` →
-  **Create cluster**.
+   **Create cluster**.
 2. Select **Datacenter** → **Single Node OpenShift**, choose your OCP
-  version and `x86_64`.
-3. Set cluster name and base domain.
-4. On the **Static network configuration** step: skip it and let DHCP
-   handle it. With the OOB-network topology (see the note above), the node
-   gets a real, non-link-local address (`192.168.200.x/24`) automatically —
-   you don't know the exact address ahead of time, so there's nothing valid
-   to type into a static config here anyway.
-5. Download the **Discovery ISO** (minimal image is fine — the node has
-  outbound internet access to fetch the rest at boot).
+   version and `x86_64`.
+3. Set cluster name / base domain (defaults used by scripts:
+   `sno-cluster` / `dsx.air.local`).
+4. Skip static network configuration — DHCP on Air's OOB network assigns
+   `192.168.200.x`.
+5. Download the **Discovery ISO** (minimal is fine) and point
+   `DISCOVERY_ISO_PATH` at that file before Step 2.
 
-## Step 2 — Upload the ISO to Air *before* importing the topology
-
-Use `scripts/upload_discovery_iso.py`. Open it and fill in:
-
-- `API_KEY` — your NGC Personal API Key from the Prerequisites section
-  above (or leave it `None` and `export AIR_API_KEY=...` instead).
-- `ISO_PATH` — wherever your browser actually saved the discovery ISO in
-  Step 1, usually `~/Downloads/<something>-discovery.iso` named after your
-  cluster (check the real filename — it won't literally be
-  `discovery_image_sno-cluster.iso`).
-
-Then run it:
+## Step 2 — Upload the discovery ISO to Air
 
 ```bash
-python scripts/upload_discovery_iso.py
+uv run upload_discovery_iso.py
 ```
 
-`IMAGE_NAME` in the script (`dsxair-discovery-iso`) is what the image is
-called *inside* Air — unrelated to `ISO_PATH`/the local filename — and it
-already matches `"cdrom": "dsxair-discovery-iso"` in `topology.json`. If you
-change one, update the other to match before importing.
+Uploads as Air image `dsxair-discovery-iso` (must match `topology.json`
+`"cdrom"`). Skips if the image already exists; pass `--replace` to overwrite
+content.
 
-### Adding a worker node? Decide *now* — it has to happen at creation time, with 2 discovery ISOs
-
-If you want a worker alongside the SNO host (`sno-worker-1` in
-`topology.json`), it must be added **before** the simulation is first
-imported/started — per Air's own docs, *"You cannot add, remove, or edit
-nodes after the simulation starts for the first time."* There's no
-"add a node to a running simulation" API; the only way to add one after the
-fact is to delete the whole simulation and re-import a `topology.json` that
-already includes it (losing whatever state the existing nodes had). So
-finalize your full node list, including any workers, before you ever run
-Step 3 for the first time.
-
-Each node with `"boot": [..., "cdrom"]` also needs its own `cdrom` image
-already uploaded to Air *before* import (same rule as the single-SNO case
-above) — so a SNO + 1 worker topology needs **two** discovery ISOs attached,
-not one:
-
-- `sno-cluster`'s `cdrom` → `dsxair-discovery-iso`
-- `sno-worker-1`'s `cdrom` → `worker-discovery-iso`
-
-Run `scripts/upload_discovery_iso.py` twice — once per image name — editing
-`IMAGE_NAME` (and `ISO_PATH`, if you downloaded a separate ISO copy for the
-worker from the Assisted Installer console) between runs, so both names
-referenced by `topology.json`'s `cdrom` fields actually exist in Air by the
-time you get to Step 3. (Assisted Installer's discovery ISO is the same
-regardless of eventual node role — control-plane vs. worker is decided
-later, in Host discovery — so it's fine to upload the exact same ISO file
-twice under the two different Air image names if you don't have a second
-download handy.)
-
-## Step 3 — Import the topology and boot the node
-
-Run `scripts/01_create_simulation.py`. It imports `topology.json` (now
-that the referenced `cdrom` image actually exists) and starts the
-simulation. This also implicitly creates `oob-mgmt-switch-leaf-1` and
-`oob-mgmt-server` — you don't define those in `topology.json`; Air
-auto-provisions them because the node's `eth0` is left on the default OOB
-network (see the OOB note above).
-
-The script also creates (or reuses) an SSH Service exposing
-`oob-mgmt-server`'s management port, and prints the ready-to-use `ssh`
-command for it — that's your jump host onto `sno-cluster`'s private
-`192.168.200.x` address for later (Step 5). If you ever need that command
-again without re-running this whole script, use
-`scripts/04_create_jump_host_service.py`.
+## Step 3 — Create and upload `blank-100g`
 
 ```bash
-python scripts/01_create_simulation.py
+uv run upload_blank_disk.py
 ```
 
-If you need the host to redo discovery later (e.g. after a failed install),
-don't try to toggle `boot`/`cdrom` on the running node — see "Important:
-boot order stays `[\"hd\", \"cdrom\"]`" above. Rebuild the node instead
-(`node.rebuild()`), which resets `hd` back to the blank `blank-100g`
-template so the next boot naturally falls through to `cdrom` again.
+Creates a sparse local 100G qcow2 (if needed) and uploads it as Air image
+`blank-100g` (must match `topology.json` `"os"`). Skips if present unless
+`--replace`.
 
-## Step 4 — Discover, validate, install (in the console)
+## Step 4 — Import the topology and boot the node
 
-1. Watch `console.redhat.com/openshift/assisted-installer/clusters/<id>` —
-  the node phones home and appears under **Host discovery** within a
-   minute or two of booting. With the OOB-network fix, the Active
-   NIC/IPv4/MAC columns should now populate (a real `192.168.200.x`
-   address) instead of showing blank — note that address down, it's your
-   API/Ingress VIP.
-2. On the **Networking** step, **Machine network** should now show a real
-   subnet option (`192.168.200.0/24`-ish) instead of "No subnets are
-   currently available" — select it. Set both **API VIP** and **Ingress
-   VIP** to the node's own address from step 1 (SNO doesn't use a separate
-   load-balancer IP — the single node serves both directly).
-3. If you're using the **Create DNS Records** helper (or your own DNS),
-   point `api.<cluster>.<domain>` and `*.apps.<cluster>.<domain>` at that
-   same `192.168.200.x` address — **not** `169.254.0.2`; that guidance
-   applied to the old outbound-link topology and no longer applies.
-4. For SNO, the single host is auto-assigned the control-plane role.
-  Wait for all validations (CPU/RAM/disk, network connectivity, NTP, DNS)
-   to turn green. If something's red, it'll tell you exactly what's wrong —
-   this live feedback is one of the nicer parts of this path vs. hand-built
-   Agent-based ISOs.
-5. Click **Install cluster**. Progress streams live in the console.
-6. When it finishes, download `kubeconfig` and the `kubeadmin` password
-  from the console's **Cluster details** page.
+```bash
+uv run 01_create_simulation.py
+```
 
-## Step 5 — Verify
+Imports `topology.json` and starts the simulation. Air auto-provisions
+`oob-mgmt-switch-leaf-1` and `oob-mgmt-server` for the default OOB network.
+The script also sets up the SSH jump host onto `oob-mgmt-server` and prints
+the `ssh` command (re-printable later with
+`04_create_jump_host_service.py`).
+
+If a simulation named `sno-cluster` already exists, the script refuses to
+import again — delete it in the Air UI for a fresh start (required after an
+`INVALID` import).
+
+To force discovery again after a failed install, rebuild the node
+(`node.rebuild()`) rather than toggling `boot`/`cdrom` — see the boot-order
+note above.
+
+## Step 5 — Wait for host discovery, then install
+
+```bash
+uv run 06_wait_for_host_ipv4.py
+```
+
+Polls Assisted Installer until a host for the cluster shows an OOB IPv4 in
+`192.168.200.0/24`. That proves Air networking + discovery ISO phone-home
+are working. The script does **not** start the install.
+
+Then in `console.redhat.com/openshift/assisted-installer/clusters/<id>`:
+
+1. Confirm Host discovery shows the real `192.168.200.x` address — note it;
+   it is your API/Ingress VIP for SNO.
+2. On **Networking**, select the `192.168.200.0/24` machine network. Set
+   **API VIP** and **Ingress VIP** to the node's own address.
+3. Point DNS (`api.<cluster>.<domain>` and `*.apps.<cluster>.<domain>`) at
+   that same address — **not** `169.254.0.2`.
+4. Wait for validations to turn green, then **Install cluster**.
+5. Download `kubeconfig` and the `kubeadmin` password when finished.
+
+## Step 6 — Verify
 
 ```bash
 export KUBECONFIG=~/Downloads/kubeconfig
@@ -354,69 +357,41 @@ oc get nodes
 oc get clusterversion
 ```
 
-This only works directly from your laptop if you can actually route to
-`192.168.200.x` — which you generally can't, since it's Air's private OOB
-subnet. Options, easiest first:
+This only works directly from your laptop if you can route to
+`192.168.200.x` — which you generally can't. Options, easiest first:
 
-- SSH into `oob-mgmt-server` using the command `scripts/01_create_simulation.py`
-  printed in Step 3 (or re-print it any time with
-  `python scripts/04_create_jump_host_service.py`), then run `oc` from
-  there instead — it's on the same private network, so it reaches the node
-  directly. `scp`/paste your `kubeconfig` over first.
-- Or add a local port-forward to that same `ssh` command, e.g.
-  `-L 6443:<sno-cluster-ip>:6443`, and point `KUBECONFIG`'s server URL at
-  `https://localhost:6443` (get `<sno-cluster-ip>` from Host discovery or the
-  Air node console) — lets you run `oc` straight from your laptop instead.
-- Or create a **Service** (Services tab → Create a service → type `HTTPS`,
-  port `6443`, interface = the node's `eth0`) to expose the API externally
-  through a public Air FQDN, and point `KUBECONFIG`'s server URL /
-  `api.<cluster>.<domain>`'s DNS record at that FQDN instead of the private
-  IP directly.
-
-That's it — this is now a real, independent SNO cluster running in your
-Air simulation.
+- SSH into `oob-mgmt-server` using the command
+  `01_create_simulation.py` printed (or
+  `uv run 04_create_jump_host_service.py`), then run `oc` from there.
+  `scp`/paste your `kubeconfig` over first.
+- Or add a local port-forward, e.g. `-L 6443:<sno-cluster-ip>:6443`, and
+  point `KUBECONFIG`'s server URL at `https://localhost:6443`.
+- Or create an Air **Service** (HTTPS / port `6443` on the node's `eth0`)
+  and point DNS / kubeconfig at that public FQDN.
 
 ## Scripts reference
 
-See `scripts/SCRIPTS.md` for a full index of every script in `scripts/`
-(including the standalone/alternative-path and read-only diagnostic ones
-not covered step-by-step above) and what each one does.
+See `scripts/SCRIPTS.md` for a full index of every script in `scripts/`.
 
-## About `scripts/air_common.py`
+## About `scripts/air_common.py` and `scripts/env_config.py`
 
-`scripts/air_common.py` is a shared helper module — a small internal
-wrapper around `air_sdk` that every numbered script imports from, so the
-same logic isn't copy-pasted across all of them. It's not meant to be run
-directly. It exists to encapsulate two non-obvious, empirically-discovered
-Air API quirks in exactly one place:
+`env_config.py` centralizes env / `*_FILE` / path resolution for Air and
+Assisted Installer credentials.
 
-- **Node edits require `INACTIVE`.** Patching a node's `cdrom`/`advanced.boot`
-  fields (or creating a new node) is rejected/ignored while the simulation
-  is `ACTIVE`. Any script that touches a node has to stop the simulation
-  first.
+`air_common.py` wraps `air_sdk` quirks shared by the numbered Air scripts:
+
+- **Node edits require `INACTIVE`.** Patching `cdrom` / boot (or creating a
+  node) while `ACTIVE` is rejected or ignored.
 - **Checkpoints block further changes.** Air auto-creates a checkpoint on
-  shutdown, and it must reach the `COMPLETE` state (not just exist) before
-  the simulation/node can be manipulated again — otherwise you hit
-  `"The checkpoint must be in the COMPLETE state."`
-
-Rather than every script re-implementing "stop sim → wait for `INACTIVE` →
-wait for checkpoints to clear → make the edit → restart → wait for
-`ACTIVE`," they call `stop_simulation_and_clear_checkpoints()` /
-`start_simulation()` from here instead.
-
-What it provides, and who uses each piece:
+  shutdown; it must reach `COMPLETE` before further edits.
 
 | Function | Purpose | Used by |
 |---|---|---|
-| `get_api()` (re-exported from `upload_discovery_iso.py`) | Single place the `AIR_API_KEY`/`API_KEY` resolution logic lives, so every script authenticates the same way | All scripts |
+| `get_api()` (from `upload_discovery_iso.py`) | Air auth via `AIR_API_KEY` / `AIR_API_KEY_FILE` | Air scripts |
 | `get_simulation()` | Look up the `sno-cluster` simulation by name | `02`, `03`, `04`, `host-creation.py` |
 | `get_node()` | Look up a node by name within a simulation | `02`, `03` |
-| `wait_for_sim_state()` | Poll until the simulation reaches a target state (`ACTIVE`/`INACTIVE`) | `01` directly, and internally by the two functions below |
-| `stop_simulation_and_clear_checkpoints()` | The stop → clear-checkpoints half of the dance, used before any node patch/create | `02`, `03`, `host-creation.py` |
-| `start_simulation()` | Restart the simulation and wait for `ACTIVE` afterward | `02`, `03`, `host-creation.py` |
-| `ensure_jump_host_service()` | Idempotently expose `oob-mgmt-server`'s SSH port as an Air Service (reuses an existing one instead of duplicating it) | `01` (sets it up right after import), `04` (re-prints/re-creates it any time later) |
-| `jump_host_ssh_command()` | Format the ready-to-use `ssh` command for that service | `01`, `04` |
-
-In short: it's the DRY layer that lets the numbered scripts read like clean,
-linear step-by-step procedures while all the fiddly state-machine/timing
-logic for talking to Air's API lives in exactly one file.
+| `wait_for_sim_state()` | Poll until `ACTIVE` / `INACTIVE` | `01` and stop/start helpers |
+| `stop_simulation_and_clear_checkpoints()` | Stop + clear checkpoints before node edits | `02`, `03`, `host-creation.py` |
+| `start_simulation()` | Restart and wait for `ACTIVE` | `02`, `03`, `host-creation.py` |
+| `ensure_jump_host_service()` | Idempotent SSH Service on `oob-mgmt-server` | `01`, `04` |
+| `jump_host_ssh_command()` | Format the ready-to-use `ssh` command | `01`, `04` |

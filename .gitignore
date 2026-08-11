@@ -1,5 +1,9 @@
 __pycache__/
 *.pyc
+.venv/
+.cache/
+.env
+.env.*
 
 # Contains a real quay.io credential (base64-wrapped plaintext auth) — never commit.
 scripts/seedgen.yaml

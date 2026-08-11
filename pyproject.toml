@@ -1,0 +1,10 @@
+[project]
+name = "dsx-air-ocp"
+version = "0.1.0"
+description = "OpenShift on NVIDIA DSX Air via Assisted Installer discovery ISO"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "aicli>=99.0.0",
+    "nv-air-sdk>=1.6.1",
+]

@@ -16,9 +16,9 @@ infrastructure Air creates for you the moment a node's `eth0` is left on
 the default OOB network. This script just imports the manifest and starts
 it — nothing more.
 
-Prerequisite: the discovery ISO image referenced by topology.json's
-"cdrom" field (sno-discovery-iso) must already exist in Air — see
-upload_discovery_iso.py.
+Prerequisite: Air images referenced by topology.json must already exist:
+"cdrom" dsxair-discovery-iso (upload_discovery_iso.py) and "os"
+blank-100g (upload_blank_disk.py).
 
 This also sets up the SSH jump host onto oob-mgmt-server (see
 04_create_jump_host_service.py) so you walk away from this one script with
