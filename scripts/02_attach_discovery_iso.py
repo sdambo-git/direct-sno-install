@@ -50,13 +50,17 @@ def main() -> None:
     stop_simulation_and_clear_checkpoints(sim)
 
     print(f"Attaching cdrom image {IMAGE_NAME!r} ({image.id}) ...")
-    node.update(cdrom={"image": image.id})
+    # Merge into existing advanced — a partial advanced= update can reset
+    # cpu_mode (e.g. host-passthrough → custom) and break the guest.
+    advanced = dict(node.advanced or {})
+    advanced["boot"] = ["hd", "cdrom"]
+    if not advanced.get("cpu_mode"):
+        advanced["cpu_mode"] = "host-passthrough"
+    print(f"Setting cdrom + advanced boot={advanced.get('boot')!r} "
+          f"cpu_mode={advanced.get('cpu_mode')!r} ...")
+    node.update(cdrom={"image": image.id}, advanced=advanced)
     node.refresh()
     print(f"  cdrom now: {node.cdrom}")
-
-    print("Setting boot order to cdrom-first ...")
-    node.update(advanced={"boot": "cdrom"})
-    node.refresh()
     print(f"  advanced now: {node.advanced}")
 
     start_simulation(sim)

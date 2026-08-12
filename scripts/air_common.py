@@ -16,6 +16,9 @@ Handles two annoying, empirically-discovered Air quirks:
 """
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 import time
 
 from air_sdk import AirApi
@@ -23,6 +26,7 @@ from air_sdk.endpoints.nodes import Node
 from air_sdk.endpoints.services import Service
 from air_sdk.endpoints.simulations import Simulation
 
+import env_config
 from upload_discovery_iso import get_api  # noqa: F401  (re-exported)
 
 SIMULATION_NAME = "sno-cluster"
@@ -82,29 +86,77 @@ def stop_simulation_and_clear_checkpoints(sim: Simulation) -> None:
         return
 
     print(f"Clearing {len(checkpoints)} checkpoint(s) before patching the node ...")
-    deadline = time.monotonic() + 120
+    deadline = time.monotonic() + 300
     for cp in checkpoints:
         while True:
             cp.refresh()
             state = getattr(cp, "state", None)
-            if state == "COMPLETE":
-                break
-            if state == "DELETED":
+            if state in {"COMPLETE", "DELETED"}:
                 break
             if time.monotonic() > deadline:
-                raise SystemExit(f"Timed out waiting for checkpoint {cp.id} to become COMPLETE.")
+                raise SystemExit(
+                    f"Timed out waiting for checkpoint {cp.id} to become COMPLETE "
+                    f"(last state: {state!r})."
+                )
             time.sleep(3)
+        if getattr(cp, "state", None) == "DELETED":
+            continue
         try:
             cp.delete()
             print(f"  deleted checkpoint {cp.id} ({cp.name})")
-        except Exception as exc:  # noqa: BLE001 - best-effort cleanup
-            print(f"  warning: could not delete checkpoint {cp.id}: {exc}")
+        except Exception as exc:  # noqa: BLE001
+            raise SystemExit(
+                f"Could not delete checkpoint {cp.id}: {exc}. "
+                "Disk state may revert on next start — refusing to continue."
+            ) from exc
 
 
 def start_simulation(sim: Simulation) -> None:
     print(f"Starting simulation {sim.name!r} ...")
     sim.start()
     wait_for_sim_state(sim, "ACTIVE", timeout=180)
+
+
+def boot_node_to_disk(sim: Simulation, node_name: str = NODE_NAME, *, force: bool = False) -> None:
+    """Legacy: detach cdrom and set hd-only boot.
+
+    The blank-disk topology pattern (README.md) keeps boot ``["hd", "cdrom"]``
+  forever — blank hd falls through to the discovery ISO, and a bootable
+    install wins on hd automatically. Stopping the sim to toggle boot/cdrom
+    can revert disk state via checkpoints and leaves a non-bootable hd with
+    no cdrom fallback ("No bootable device").
+
+    This function is kept for manual recovery only; pass ``force=True`` to run.
+    """
+    if not force:
+        print(
+            "Skipping boot-to-disk: blank-disk topology uses permanent boot "
+            '["hd", "cdrom"] — no boot/cdrom toggle needed. See README.md. '
+            "If the node shows 'No bootable device', run "
+            "09_recover_to_discovery.py instead."
+        )
+        return
+    node = get_node(sim, node_name)
+    print(f"Current state: node.cdrom={node.cdrom!r} advanced.boot={node.advanced.get('boot')!r}")
+
+    stop_simulation_and_clear_checkpoints(sim)
+
+    print("Setting boot order to hd-only ...")
+    advanced = dict(node.advanced or {})
+    advanced["boot"] = "hd"
+    if not advanced.get("cpu_mode"):
+        advanced["cpu_mode"] = "host-passthrough"
+    node.update(advanced=advanced)
+    node.refresh()
+    print(f"  advanced now: {node.advanced}")
+
+    print("Detaching cdrom ...")
+    node.update(cdrom=None)
+    node.refresh()
+    print(f"  cdrom now: {node.cdrom}")
+
+    start_simulation(sim)
+    print("Node will boot from disk on its next reboot.")
 
 
 def ensure_jump_host_service(
@@ -140,6 +192,257 @@ def ensure_jump_host_service(
     return service, server
 
 
-def jump_host_ssh_command(service: Service, server: Node) -> str:
+def jump_host_ssh_target(service: Service, server: Node) -> tuple[str, int, str]:
     username = getattr(server.image, "default_username", None) or "ubuntu"
-    return f"ssh -p {service.worker_port} {username}@{service.worker_fqdn}"
+    return service.worker_fqdn, service.worker_port, username
+
+
+def jump_host_ssh_command(service: Service, server: Node) -> str:
+    host, port, username = jump_host_ssh_target(service, server)
+    return f"ssh -p {port} {username}@{host}"
+
+
+def jump_host_ssh_probe(
+    service: Service,
+    server: Node,
+    *,
+    timeout: int = 20,
+) -> tuple[bool, str]:
+    """Return (ready, reason). ready=True when non-interactive SSH works."""
+    host, port, username = jump_host_ssh_target(service, server)
+    try:
+        result = subprocess.run(
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                "-o",
+                "ConnectTimeout=10",
+                "-p",
+                str(port),
+                f"{username}@{host}",
+                "echo",
+                "jump-host-ok",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        return False, str(exc)
+
+    combined = f"{result.stdout}\n{result.stderr}".lower()
+    if result.returncode == 0 and "jump-host-ok" in result.stdout:
+        return True, "ok"
+    if "password has expired" in combined or "password change required" in combined:
+        return False, "password_expired"
+    if "connection refused" in combined or "no route to host" in combined:
+        return False, "not_reachable"
+    detail = (result.stderr or result.stdout or "").strip()
+    return False, detail or f"ssh exit {result.returncode}"
+
+
+def _wait_for_jump_host_ssh(
+    service: Service,
+    server: Node,
+    *,
+    timeout: int = 120,
+    interval: int = 5,
+) -> None:
+    deadline = time.monotonic() + timeout
+    last_reason = "unknown"
+    while time.monotonic() < deadline:
+        ready, reason = jump_host_ssh_probe(service, server, timeout=15)
+        if ready or reason == "password_expired":
+            return
+        last_reason = reason
+        time.sleep(interval)
+    raise SystemExit(
+        f"Timed out after {timeout}s waiting for jump host SSH on "
+        f"{jump_host_ssh_command(service, server)!r} (last seen: {last_reason!r})."
+    )
+
+
+def bootstrap_jump_host_password(
+    service: Service,
+    server: Node,
+    *,
+    initial_password: str | None = None,
+    new_password: str | None = None,
+    timeout: int = 60,
+) -> None:
+    """Clear NVIDIA Air's mandatory first-login password change on oob-mgmt-server.
+
+    Fresh oob-mgmt-server VMs ship with default user ``ubuntu`` / password
+    ``nvidia`` and refuse to run commands until the password is changed.
+    Pubkey auth still connects, but BatchMode SSH fails with
+    ``Password change required but no TTY available``.
+    """
+    ready, reason = jump_host_ssh_probe(service, server, timeout=15)
+    if ready:
+        print(f"Jump host {OOB_SERVER_NAME!r} already accepts non-interactive SSH.")
+        return
+    if reason != "password_expired" and reason != "not_reachable":
+        print(
+            f"Jump host SSH probe: {reason!r} — waiting for SSH to come up before "
+            "bootstrapping the password ..."
+        )
+        _wait_for_jump_host_ssh(service, server, timeout=120)
+        ready, reason = jump_host_ssh_probe(service, server, timeout=15)
+        if ready:
+            print(f"Jump host {OOB_SERVER_NAME!r} already accepts non-interactive SSH.")
+            return
+
+    if shutil.which("expect") is None:
+        raise SystemExit(
+            "The `expect` command is required to bootstrap the jump host password. "
+            "Install expect (e.g. `sudo dnf install expect`) or run the password "
+            "change manually, then re-run this script."
+        )
+
+    host, port, username = jump_host_ssh_target(service, server)
+    initial = initial_password or env_config.jump_host_initial_password(
+        image_default=getattr(server.image, "default_password", None)
+    )
+    new = new_password or env_config.jump_host_password()
+
+    print(
+        f"Bootstrapping jump host password for {username}@{host}:{port} "
+        f"(factory password -> JUMP_HOST_PASSWORD) ..."
+    )
+
+    expect_script = r"""
+set timeout [expr {$env(JUMP_HOST_EXPECT_TIMEOUT)}]
+set initial $env(JUMP_HOST_INITIAL_PASSWORD)
+set newpass $env(JUMP_HOST_PASSWORD)
+set port $env(JUMP_HOST_PORT)
+set user $env(JUMP_HOST_USER)
+set host $env(JUMP_HOST_HOST)
+
+spawn ssh -tt -o StrictHostKeyChecking=accept-new -p $port $user@$host
+
+expect {
+    -re "(?i)are you sure you want to continue connecting" {
+        send "yes\r"
+        exp_continue
+    }
+    -re "(?i)current password:" {
+        send "$initial\r"
+    }
+    -re "(?i)password:" {
+        send "$initial\r"
+    }
+    timeout {
+        puts "expect timed out waiting for current/login password prompt"
+        exit 1
+    }
+    eof {
+        puts "ssh closed before password prompts appeared"
+        exit 1
+    }
+}
+
+expect {
+    -re "New password:" {
+        send "$newpass\r"
+    }
+    timeout {
+        puts "expect timed out waiting for new password prompt"
+        exit 1
+    }
+    eof {
+        puts "ssh closed before new password prompt"
+        exit 1
+    }
+}
+
+expect {
+    -re "Retype new password:" {
+        send "$newpass\r"
+    }
+    timeout {
+        puts "expect timed out waiting for retype password prompt"
+        exit 1
+    }
+    eof {
+        puts "ssh closed before retype password prompt"
+        exit 1
+    }
+}
+
+expect {
+    -re "password updated successfully" {
+        exit 0
+    }
+    -re "jump-host-bootstrap-ok" {
+        exit 0
+    }
+    -re {ubuntu@.*[$#] } {
+        send "echo jump-host-bootstrap-ok\r"
+        exp_continue
+    }
+    -re {\$ $} {
+        send "echo jump-host-bootstrap-ok\r"
+        exp_continue
+    }
+    timeout {
+        puts "expect timed out waiting for password change confirmation"
+        exit 1
+    }
+    eof {
+        exit 0
+    }
+}
+"""
+    env = os.environ.copy()
+    env.update(
+        {
+            "JUMP_HOST_INITIAL_PASSWORD": initial,
+            "JUMP_HOST_PASSWORD": new,
+            "JUMP_HOST_PORT": str(port),
+            "JUMP_HOST_USER": username,
+            "JUMP_HOST_HOST": host,
+            "JUMP_HOST_EXPECT_TIMEOUT": str(timeout),
+        }
+    )
+    result = subprocess.run(
+        ["expect", "-c", expect_script],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=timeout + 30,
+        check=False,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise SystemExit(
+            "Jump host password bootstrap failed. "
+            f"Try connecting manually with:\n\n    {jump_host_ssh_command(service, server)}\n\n"
+            f"Factory password is the image default (usually {env_config.DEFAULT_JUMP_HOST_INITIAL_PASSWORD!r}); "
+            f"set JUMP_HOST_PASSWORD for the new password. "
+            f"Details: {detail or 'expect exited non-zero'}"
+        )
+
+    ready, reason = jump_host_ssh_probe(service, server, timeout=15)
+    if not ready:
+        raise SystemExit(
+            "Jump host password bootstrap appeared to succeed, but non-interactive "
+            f"SSH still fails: {reason!r}"
+        )
+    print(f"Jump host {OOB_SERVER_NAME!r} is ready for non-interactive SSH.")
+
+
+def ensure_jump_host_ready(
+    sim: Simulation,
+    service_name: str = JUMP_HOST_SERVICE_NAME,
+    *,
+    skip_bootstrap: bool = False,
+) -> tuple[Service, Node]:
+    """Expose oob-mgmt-server SSH and clear the first-login password if needed."""
+    service, server = ensure_jump_host_service(sim, service_name=service_name)
+    if not skip_bootstrap:
+        bootstrap_jump_host_password(service, server)
+    return service, server

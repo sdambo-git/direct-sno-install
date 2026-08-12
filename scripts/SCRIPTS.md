@@ -19,7 +19,7 @@ related variables.
 | 0 | `00_create_discovery_iso.py` | Once (or after `--force`) | Creates Assisted Installer SaaS SNO cluster + infraenv via `ailib`, downloads the discovery ISO locally. Idempotent reuse; `--force` recreates. |
 | — | `upload_discovery_iso.py` | After step 0 | Uploads the local ISO to Air as `dsxair-discovery-iso`. Skips if present unless `--replace`. |
 | — | `upload_blank_disk.py` | Before first import | Creates sparse local 100G qcow2 (if needed) and uploads Air image `blank-100g`. Skips if present unless `--replace`. |
-| 1 | `01_create_simulation.py` | After both Air images exist | Imports `../topology.json` and starts the simulation (creates `sno-cluster` + implicit OOB mgmt nodes). Sets up jump-host SSH. Refuses if `sno-cluster` already exists — delete in Air UI first. |
+| 1 | `01_create_simulation.py` | After both Air images exist | Imports `../topology.json` and starts the simulation (creates `sno-cluster` + implicit OOB mgmt nodes). Sets up jump-host SSH and clears the first-login password. Refuses if `sno-cluster` already exists — delete in Air UI first. |
 | 6 | `06_wait_for_host_ipv4.py` | After the node boots discovery | Polls Assisted Installer until a host shows OOB IPv4 `192.168.200.x`. Does not start install. |
 | — | *(Assisted Installer console)* | After wait succeeds | Networking VIPs → validations → Install cluster. See README Step 5. |
 | 5 | `05_detach_discovery_iso.py` | After install is stable | Optional: detach discovery ISO / `hd`-only boot. |
@@ -36,7 +36,8 @@ related variables.
 |---|---|---|
 | `02_attach_discovery_iso.py` | Redo discovery after Abort/Reset in the console | Re-attaches `dsxair-discovery-iso` and sets `boot` to cdrom-first. Older pattern — prefer `node.rebuild()` today. |
 | `03_boot_to_disk.py` | At "Writing image to disk: 100%" / before reboot | Detaches cdrom / `hd`-only so reboot lands on installed disk. Older pattern. |
-| `04_create_jump_host_service.py` | Any time after `01` | Idempotent SSH Service on `oob-mgmt-server`; prints `ssh` command. |
+| `04_create_jump_host_service.py` | Any time after `01` | Idempotent SSH Service on `oob-mgmt-server` + first-login password bootstrap; prints `ssh` command. |
+| `bootstrap_jump_host.py` | Jump host SSH fails with expired password | Re-run password bootstrap only (also creates SSH service if missing). |
 
 **Caveat on `02`/`03`:** README's blank-disk + permanent `["hd","cdrom"]` note explains why `node.rebuild()` is preferred over toggling boot order.
 
@@ -60,7 +61,7 @@ related variables.
 | File | What it's for |
 |---|---|
 | `env_config.py` | Env / `*_FILE` / path resolution for Air + Assisted Installer inputs. |
-| `air_common.py` | Air stop/checkpoint/start dance, simulation/node lookup, jump-host helpers. |
+| `air_common.py` | Air stop/checkpoint/start dance, simulation/node lookup, jump-host helpers (service + password bootstrap). |
 
 ## Non-script YAML files (not part of this automation)
 

@@ -14,8 +14,11 @@
                 "os": "blank-100g",
                 "storage_pci": null,
                 "pxehost": false,
-                "cdrom": "dsxair-discovery-iso",
-                "boot": ["hd", "cdrom"],
+                "cdrom": "dsxair-discovery-1786727918",
+                "boot": [
+                    "hd",
+                    "cdrom"
+                ],
                 "features": {
                     "uefi": false
                 }

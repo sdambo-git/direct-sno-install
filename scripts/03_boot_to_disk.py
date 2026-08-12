@@ -22,48 +22,21 @@ install, click Reset Cluster in the console, then run
 running this script won't help at that point, since there's no active
 install to protect.
 
-What it does:
-  1. Stops the simulation.
-  2. Clears any auto-generated checkpoints.
-  3. Sets the node's boot order to hd-only and detaches the cdrom
-     (cdrom=None).
-  4. Restarts the simulation, so the pending reboot lands on disk.
+07_install_cluster.py runs this automatically by default; use this script
+only for manual recovery or when --no-auto-boot-to-disk was used.
 
 Run:
-    python 03_boot_to_disk.py
+    uv run 03_boot_to_disk.py
 """
 from __future__ import annotations
 
-from air_common import (
-    get_api,
-    get_node,
-    get_simulation,
-    start_simulation,
-    stop_simulation_and_clear_checkpoints,
-)
+from air_common import boot_node_to_disk, get_api, get_simulation
 
 
 def main() -> None:
     api = get_api()
     sim = get_simulation(api)
-    node = get_node(sim)
-
-    print(f"Current state: node.cdrom={node.cdrom!r} advanced.boot={node.advanced.get('boot')!r}")
-
-    stop_simulation_and_clear_checkpoints(sim)
-
-    print("Setting boot order to hd-only ...")
-    node.update(advanced={"boot": "hd"})
-    node.refresh()
-    print(f"  advanced now: {node.advanced}")
-
-    print("Detaching cdrom ...")
-    node.update(cdrom=None)
-    node.refresh()
-    print(f"  cdrom now: {node.cdrom}")
-
-    start_simulation(sim)
-
+    boot_node_to_disk(sim)
     print(
         "\nsno-cluster will now boot from disk on its next reboot. If the "
         "install was already mid-reboot-loop when you ran this, give it a "

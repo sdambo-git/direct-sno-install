@@ -9,6 +9,7 @@ DISCOVERY_ISO_PATH / ISO_PATH (default: ../.cache/dsxair-discovery.iso).
 
     uv run upload_discovery_iso.py
     uv run upload_discovery_iso.py --replace
+    uv run upload_discovery_iso.py --name dsxair-discovery-iso-current
 """
 from __future__ import annotations
 
@@ -26,9 +27,9 @@ def get_api() -> AirApi:
     return AirApi.with_api_key(api_key=env_config.air_api_key())
 
 
-def _find_image(api: AirApi):
+def _find_image(api: AirApi, name: str):
     return next(
-        (img for img in api.images.list(search=IMAGE_NAME) if img.name == IMAGE_NAME),
+        (img for img in api.images.list(search=name) if img.name == name),
         None,
     )
 
@@ -40,22 +41,28 @@ def main() -> None:
         action="store_true",
         help="Replace the file content of an existing Air image with the same name.",
     )
+    parser.add_argument(
+        "--name",
+        help="Air image name (default: dsxair-discovery-iso from env_config). "
+        "Use a new name to bust Air CDROM cache after infraenv changes.",
+    )
     args = parser.parse_args()
 
+    image_name = args.name or IMAGE_NAME
     iso_path = env_config.discovery_iso_path(must_exist=True)
     api = get_api()
-    existing = _find_image(api)
+    existing = _find_image(api, image_name)
 
     if existing is not None and not args.replace:
         print(
-            f"Air image {IMAGE_NAME!r} already exists (id={existing.id}, "
+            f"Air image {image_name!r} already exists (id={existing.id}, "
             f"upload_status={existing.upload_status!r}). Skipping upload. "
             "Pass --replace to overwrite its content."
         )
         return
 
     if existing is not None and args.replace:
-        print(f"Replacing content of existing Air image {IMAGE_NAME!r} (id={existing.id}) ...")
+        print(f"Replacing content of existing Air image {image_name!r} (id={existing.id}) ...")
         existing.clear_upload()
         existing.refresh()
         existing.upload(filepath=str(iso_path))
@@ -63,9 +70,9 @@ def main() -> None:
         print(f"Replace complete: image id={existing.id}, name={existing.name!r}")
         return
 
-    print(f"Uploading {iso_path} as Air image {IMAGE_NAME!r} ...")
+    print(f"Uploading {iso_path} as Air image {image_name!r} ...")
     image = api.images.create(
-        name=IMAGE_NAME,
+        name=image_name,
         version="2.0.0",
         default_username="core",
         default_password="password",  # cosmetic; API rejects blank

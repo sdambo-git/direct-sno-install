@@ -41,6 +41,8 @@ not hardcode secrets in the repo.
 | Cluster name | `CLUSTER_NAME` (default `sno-cluster`) |
 | Base DNS domain | `BASE_DNS_DOMAIN` (default `dsx.air.local`) |
 | Local discovery ISO path | `DISCOVERY_ISO_PATH` / `ISO_PATH` (default `.cache/dsxair-discovery.iso`) |
+| Jump host new password | `JUMP_HOST_PASSWORD` (default `redhat`) |
+| Jump host factory password | `JUMP_HOST_INITIAL_PASSWORD` (default image value or `nvidia`) |
 
 Shared resolution lives in `scripts/env_config.py`.
 
@@ -128,6 +130,15 @@ host and run `oc` from there. `scripts/01_create_simulation.py` now sets up
 that jump host automatically (see `scripts/04_create_jump_host_service.py`)
 so the ssh command is ready and waiting by the time you get to verification —
 it's not a blocker for getting the install itself to complete either way.
+
+**First-login password on `oob-mgmt-server`:** the auto-provisioned jump host
+ships with user `ubuntu` / factory password `nvidia` and *requires* a password
+change on first SSH. Until that happens, pubkey auth connects but every
+command fails with `Password change required but no TTY available`.
+`01_create_simulation.py` and `04_create_jump_host_service.py` now run the
+bootstrap automatically (via `expect`). Override the new password with
+`JUMP_HOST_PASSWORD` (default `redhat`). Re-run manually with
+`uv run bootstrap_jump_host.py` if needed.
 
 ## Important: don't pin `management_mac` in `topology.json`
 
@@ -393,5 +404,7 @@ Assisted Installer credentials.
 | `wait_for_sim_state()` | Poll until `ACTIVE` / `INACTIVE` | `01` and stop/start helpers |
 | `stop_simulation_and_clear_checkpoints()` | Stop + clear checkpoints before node edits | `02`, `03`, `host-creation.py` |
 | `start_simulation()` | Restart and wait for `ACTIVE` | `02`, `03`, `host-creation.py` |
-| `ensure_jump_host_service()` | Idempotent SSH Service on `oob-mgmt-server` | `01`, `04` |
-| `jump_host_ssh_command()` | Format the ready-to-use `ssh` command | `01`, `04` |
+| `ensure_jump_host_service()` | Idempotent SSH Service on `oob-mgmt-server` | `air_common`, `bootstrap_jump_host.py` |
+| `bootstrap_jump_host_password()` | Clear mandatory first-login password change | `ensure_jump_host_ready()` |
+| `ensure_jump_host_ready()` | SSH service + password bootstrap | `01`, `04`, `bootstrap_jump_host.py` |
+| `jump_host_ssh_command()` | Format the ready-to-use `ssh` command | `01`, `04`, `bootstrap_jump_host.py` |

@@ -33,7 +33,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from air_common import (
-    ensure_jump_host_service,
+    ensure_jump_host_ready,
     get_api,
     jump_host_ssh_command,
     wait_for_sim_state,
@@ -45,9 +45,9 @@ TOPOLOGY_PATH = Path(__file__).resolve().parent.parent / "topology.json"
 def _print_jump_host(sim) -> None:
     print("\nSetting up the oob-mgmt-server jump host ...")
     try:
-        service, server = ensure_jump_host_service(sim)
+        service, server = ensure_jump_host_ready(sim)
     except SystemExit as exc:
-        print(f"  skipped: {exc} (run 04_create_jump_host_service.py once the "
+        print(f"  skipped: {exc} (run bootstrap_jump_host.py once the "
               "simulation is ACTIVE to set this up later)")
         return
     print(f"Jump host ready: {server.name!r} reachable via:\n\n    {jump_host_ssh_command(service, server)}\n")

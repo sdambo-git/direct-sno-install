@@ -20,14 +20,14 @@ Run:
 """
 from __future__ import annotations
 
-from air_common import ensure_jump_host_service, get_api, get_simulation, jump_host_ssh_command
+from air_common import ensure_jump_host_ready, get_api, get_simulation, jump_host_ssh_command
 
 
 def main() -> None:
     api = get_api()
     sim = get_simulation(api)
 
-    service, server = ensure_jump_host_service(sim)
+    service, server = ensure_jump_host_ready(sim)
     ssh_command = jump_host_ssh_command(service, server)
 
     print(f"Jump host ready: {server.name!r} reachable via:\n\n    {ssh_command}\n")

@@ -16,6 +16,8 @@ DEFAULT_CLUSTER_NAME = "sno-cluster"
 DEFAULT_BASE_DNS_DOMAIN = "dsx.air.local"
 DEFAULT_DISCOVERY_ISO_NAME = "dsxair-discovery-iso"
 DEFAULT_BLANK_IMAGE_NAME = "blank-100g"
+DEFAULT_JUMP_HOST_INITIAL_PASSWORD = "nvidia"
+DEFAULT_JUMP_HOST_PASSWORD = "redhat"
 OOB_IPV4_PREFIX = "192.168.200."
 
 
@@ -124,3 +126,34 @@ def blank_qcow2_path() -> Path:
         return Path(raw).expanduser()
     cache = Path(__file__).resolve().parent.parent / ".cache"
     return cache / "blank-100g.qcow2"
+
+
+def _optional_secret(env_name: str, *, default: str, what: str) -> str:
+    """Resolve ENV / ENV_FILE, falling back to default when unset."""
+    value = os.environ.get(env_name)
+    if value:
+        return value.strip()
+    file_var = f"{env_name}_FILE"
+    file_path = os.environ.get(file_var)
+    if file_path:
+        return _read_file(Path(file_path).expanduser(), what=what)
+    return default
+
+
+def jump_host_initial_password(*, image_default: str | None = None) -> str:
+    """Factory password on first SSH to oob-mgmt-server (Air image default)."""
+    value = os.environ.get("JUMP_HOST_INITIAL_PASSWORD", "").strip()
+    if value:
+        return value
+    if image_default:
+        return image_default.strip()
+    return DEFAULT_JUMP_HOST_INITIAL_PASSWORD
+
+
+def jump_host_password() -> str:
+    """Target password after the mandatory first-login change on oob-mgmt-server."""
+    return _optional_secret(
+        "JUMP_HOST_PASSWORD",
+        default=DEFAULT_JUMP_HOST_PASSWORD,
+        what="jump host password",
+    )
