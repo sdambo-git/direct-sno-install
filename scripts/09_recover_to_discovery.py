@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Recover sno-cluster for discovery after a failed install or "No bootable device".
+Recover a topology node for discovery after a failed install or "No bootable device".
 
 Uses the blank-disk pattern from README.md:
   - boot stays ["hd", "cdrom"] (blank hd falls through to discovery ISO)
@@ -10,16 +10,16 @@ Uses the blank-disk pattern from README.md:
 Optionally resets the Assisted Installer cluster so the host can re-register.
 
     uv run 09_recover_to_discovery.py
+    uv run 09_recover_to_discovery.py --node ocp-worker-1
     uv run 09_recover_to_discovery.py --reset-ai
 """
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from pathlib import Path
 
 from air_common import (
+    default_node_name,
     get_api,
     get_node,
     get_simulation,
@@ -27,7 +27,7 @@ from air_common import (
     stop_simulation_and_clear_checkpoints,
     wait_for_sim_state,
 )
-from upload_discovery_iso import IMAGE_NAME
+import env_config
 
 
 def _find_image_by_name(api, name: str):
@@ -37,20 +37,12 @@ def _find_image_by_name(api, name: str):
     )
 
 
-def _discovery_image_name() -> str:
-    """Prefer topology.json cdrom name, then env default."""
-    topo_path = Path(__file__).resolve().parent.parent / "topology.json"
-    if topo_path.is_file():
-        topo = json.loads(topo_path.read_text())
-        node = topo.get("content", {}).get("nodes", {}).get("sno-cluster", {})
-        cdrom = node.get("cdrom")
-        if cdrom:
-            return str(cdrom)
-    return IMAGE_NAME
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--node",
+        help="Topology node name to recover (default: first topology node).",
+    )
     parser.add_argument(
         "--reset-ai",
         action="store_true",
@@ -58,11 +50,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    node_name = args.node or default_node_name()
+    image_name = env_config.node_cdrom_image(node_name)
+
     api = get_api()
     sim = get_simulation(api)
-    node = get_node(sim)
+    node = get_node(sim, node_name)
 
-    image_name = _discovery_image_name()
     image = _find_image_by_name(api, image_name)
     if image is None:
         raise SystemExit(
@@ -91,7 +85,6 @@ def main() -> None:
     start_simulation(sim)
 
     if args.reset_ai:
-        import env_config
         from assisted_common import get_client
 
         ai = get_client(quiet=False)
@@ -103,14 +96,12 @@ def main() -> None:
             if "409" not in str(exc):
                 raise
             print(f"  skip stop_cluster (cluster not in resettable state): {exc}")
-        # Host must boot the discovery ISO to finish reset — restart so blank hd
-        # falls through to cdrom even if the node was already running.
         print("Restarting simulation so node boots discovery ISO after AI reset ...")
         stop_simulation_and_clear_checkpoints(sim)
         start_simulation(sim)
 
     print(
-        "\nNode should boot discovery ISO (blank hd → fall through to cdrom). "
+        f"\nNode {node_name!r} should boot discovery ISO (blank hd → fall through to cdrom). "
         "Next: uv run scripts/06_wait_for_host_ipv4.py"
     )
 

@@ -29,8 +29,9 @@ from air_sdk.endpoints.simulations import Simulation
 import env_config
 from upload_discovery_iso import get_api  # noqa: F401  (re-exported)
 
-SIMULATION_NAME = "sno-cluster"
-NODE_NAME = "sno-cluster"
+# Backward-compatible defaults for scripts that import these constants.
+SIMULATION_NAME = env_config.DEFAULT_CLUSTER_NAME
+NODE_NAME = env_config.DEFAULT_CLUSTER_NAME
 
 # Air auto-provisions these two nodes whenever a node's eth0 is left on the
 # default OOB network — they're never defined in topology.json.
@@ -39,21 +40,34 @@ OOB_SERVER_INTERFACE = "eth0"
 JUMP_HOST_SERVICE_NAME = "oob-mgmt-server SSH"
 
 
-def get_simulation(api: AirApi, name: str = SIMULATION_NAME) -> Simulation:
-    sims = list(api.simulations.list(search=name))
-    matches = [s for s in sims if s.name == name]
+def get_simulation(api: AirApi, name: str | None = None) -> Simulation:
+    sim_name = name or env_config.simulation_name()
+    sims = list(api.simulations.list(search=sim_name))
+    matches = [s for s in sims if s.name == sim_name]
     if not matches:
         raise SystemExit(
-            f"No simulation named {name!r} found. Run 01_create_simulation.py first."
+            f"No simulation named {sim_name!r} found. Run 01_create_simulation.py first."
         )
     return matches[0]
 
 
-def get_node(sim: Simulation, name: str = NODE_NAME) -> Node:
+def get_topology_nodes(sim: Simulation) -> list[Node]:
+    """Return OCP nodes from the simulation (exclude Air-managed OOB infra)."""
+    implicit = {OOB_SERVER_NAME, "oob-mgmt-switch-leaf-1"}
+    return [node for node in sim.nodes.list() if node.name not in implicit]
+
+
+def default_node_name() -> str:
+    names = env_config.topology_node_names()
+    return names[0] if names else env_config.cluster_name()
+
+
+def get_node(sim: Simulation, name: str | None = None) -> Node:
+    node_name = name or default_node_name()
     for node in sim.nodes.list():
-        if node.name == name:
+        if node.name == node_name:
             return node
-    raise SystemExit(f"No node named {name!r} found in simulation {sim.name!r}.")
+    raise SystemExit(f"No node named {node_name!r} found in simulation {sim.name!r}.")
 
 
 def wait_for_sim_state(sim: Simulation, *states: str, timeout: int = 180, interval: int = 4) -> None:
@@ -117,7 +131,7 @@ def start_simulation(sim: Simulation) -> None:
     wait_for_sim_state(sim, "ACTIVE", timeout=180)
 
 
-def boot_node_to_disk(sim: Simulation, node_name: str = NODE_NAME, *, force: bool = False) -> None:
+def boot_node_to_disk(sim: Simulation, node_name: str | None = None, *, force: bool = False) -> None:
     """Legacy: detach cdrom and set hd-only boot.
 
     The blank-disk topology pattern (README.md) keeps boot ``["hd", "cdrom"]``
@@ -136,7 +150,7 @@ def boot_node_to_disk(sim: Simulation, node_name: str = NODE_NAME, *, force: boo
             "09_recover_to_discovery.py instead."
         )
         return
-    node = get_node(sim, node_name)
+    node = get_node(sim, node_name or default_node_name())
     print(f"Current state: node.cdrom={node.cdrom!r} advanced.boot={node.advanced.get('boot')!r}")
 
     stop_simulation_and_clear_checkpoints(sim)

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Wait until Assisted Installer reports a host for the lab cluster with a real
-Air OOB IPv4 (192.168.200.0/24). Does not start the cluster install.
+Wait until Assisted Installer reports hosts for the lab cluster with real
+Air OOB IPv4 addresses (192.168.200.0/24). Does not start the cluster install.
 
 Polls Assisted Installer and (when AIR_API_KEY is set) checks Air boot order
 so discovery failures surface early with remediation hints.
 
     uv run 06_wait_for_host_ipv4.py
+    uv run 06_wait_for_host_ipv4.py --require-known --min-hosts 2
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ import argparse
 import sys
 import time
 
-from assisted_common import cluster_hosts, get_client, host_oob_ipv4s
+from assisted_common import all_hosts_oob_ready, cluster_hosts, get_client, host_oob_ipv4s
 from assisted_poll import (
     PollSnapshot,
     PollTracker,
@@ -26,6 +27,16 @@ from assisted_poll import (
     suggest_poll_interval,
 )
 import env_config
+
+
+def _summarize_hosts(hosts: list[dict]) -> str:
+    parts = []
+    for host in hosts:
+        hostname = host.get("requested_hostname") or host.get("id")
+        status = host.get("status")
+        ips = host_oob_ipv4s(host)
+        parts.append(f"{hostname} status={status} oob={ips or '-'}")
+    return "; ".join(parts) if parts else "no hosts yet"
 
 
 def main() -> None:
@@ -47,9 +58,16 @@ def main() -> None:
         action="store_true",
         help="Exit only when host status is known/ready (not just OOB IP).",
     )
+    parser.add_argument(
+        "--min-hosts",
+        type=int,
+        default=None,
+        help="Minimum hosts with OOB IPv4 (default: EXPECTED_HOSTS / topology size).",
+    )
     args = parser.parse_args()
 
     name = env_config.cluster_name()
+    min_hosts = args.min_hosts if args.min_hosts is not None else env_config.expected_hosts()
     ai = get_client(quiet=True)
     deadline = time.monotonic() + args.timeout
     tracker = PollTracker()
@@ -57,7 +75,7 @@ def main() -> None:
     poll_num = 0
 
     print(
-        f"Waiting up to {args.timeout}s for a host on cluster {name!r} "
+        f"Waiting up to {args.timeout}s for {min_hosts} host(s) on cluster {name!r} "
         f"with IPv4 in {env_config.OOB_IPV4_PREFIX}0/24 ..."
     )
 
@@ -70,13 +88,9 @@ def main() -> None:
         if issues:
             print_action_block(issues, consecutive=max(streak, 1))
 
-        summaries = []
         for host in hosts:
             hostname = host.get("requested_hostname") or host.get("id")
             status = host.get("status")
-            ips = host_oob_ipv4s(host)
-            summaries.append(f"{hostname} status={status} oob={ips or '-'}")
-
             if status in {"error", "cancelled"}:
                 raise SystemExit(
                     f"Host {hostname} needs recovery before discovery can continue: "
@@ -84,33 +98,36 @@ def main() -> None:
                     f"{format_issues(issues)}"
                 )
 
-            if status == "resetting-pending-user-action":
-                print(
-                    f"  [{poll_num}] {hostname} resetting — waiting for discovery ISO boot "
-                    f"({host.get('status_info')})"
-                )
-                break
-
-            if ips:
-                if args.require_known and status not in {"known", "ready"}:
-                    print(
-                        f"  [{poll_num}] {hostname} has OOB {ips[0]} but status={status!r}; "
-                        f"waiting for known/ready ..."
-                    )
-                    break
-                print(
-                    f"Host discovery succeeded: {hostname} has OOB IPv4 "
-                    f"{ips[0]} (status={status})."
-                )
-                if status not in {"known", "ready"}:
-                    print(
-                        f"Note: status is {status!r}, not known/ready yet — "
-                        "run install only when validations pass."
-                    )
-                print("Next: uv run scripts/07_install_cluster.py when host is known/ready.")
-                return
+        if any((h.get("status") or "") == "resetting-pending-user-action" for h in hosts):
+            resetting = [
+                h.get("requested_hostname") or h.get("id")
+                for h in hosts
+                if h.get("status") == "resetting-pending-user-action"
+            ]
+            print(
+                f"  [{poll_num}] host(s) resetting — waiting for discovery ISO boot: "
+                f"{', '.join(resetting)}"
+            )
         else:
-            last_summary = "; ".join(summaries) if summaries else "no hosts yet"
+            ready, ready_hosts = all_hosts_oob_ready(
+                ai, min_hosts=min_hosts, require_known=args.require_known
+            )
+            last_summary = _summarize_hosts(hosts)
+            if ready:
+                print(f"Host discovery succeeded for {len(ready_hosts)} host(s):")
+                for host in ready_hosts:
+                    hostname = host.get("requested_hostname") or host.get("id")
+                    ips = host_oob_ipv4s(host)
+                    print(
+                        f"  - {hostname}: OOB {ips[0]} (status={host.get('status')})"
+                    )
+                if not args.require_known:
+                    print(
+                        "Note: not all hosts may be known/ready yet — "
+                        "pass --require-known before install."
+                    )
+                print("Next: uv run scripts/07_install_cluster.py when all hosts are known/ready.")
+                return
             print(f"  [{poll_num}] still waiting ({last_summary})")
 
         abort, reason = tracker.should_abort(
@@ -123,16 +140,15 @@ def main() -> None:
 
         if time.monotonic() > deadline:
             raise SystemExit(
-                f"Timed out after {args.timeout}s waiting for OOB IPv4 "
+                f"Timed out after {args.timeout}s waiting for {min_hosts} host(s) with OOB IPv4 "
                 f"(last seen: {last_summary}).\n"
                 f"{format_issues(issues + check_air_discovery_boot())}"
             )
 
-        snapshot_hosts = hosts
         interval = suggest_poll_interval(
             PollSnapshot(cluster_status=cluster.get("status", ""), hosts=hosts)
         )
-        time.sleep(min(args.interval, interval) if not snapshot_hosts else interval)
+        time.sleep(min(args.interval, interval) if not hosts else interval)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,70 @@
+{
+    "format": "JSON",
+    "ztp": null,
+    "content": {
+        "nodes": {
+            "ocp-cp-0": {
+                "cpu": 16,
+                "memory": 65536,
+                "storage": 100,
+                "nic_model": "virtio",
+                "cpu_mode": "host-passthrough",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "blank-100g",
+                "storage_pci": null,
+                "pxehost": false,
+                "cdrom": "dsxair-discovery-1786747748",
+                "boot": [
+                    "hd",
+                    "cdrom"
+                ],
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ocp-cp-1": {
+                "cpu": 16,
+                "memory": 65536,
+                "storage": 100,
+                "nic_model": "virtio",
+                "cpu_mode": "host-passthrough",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "blank-100g",
+                "storage_pci": null,
+                "pxehost": false,
+                "cdrom": "dsxair-discovery-1786747748",
+                "boot": [
+                    "hd",
+                    "cdrom"
+                ],
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ocp-cp-2": {
+                "cpu": 16,
+                "memory": 65536,
+                "storage": 100,
+                "nic_model": "virtio",
+                "cpu_mode": "host-passthrough",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "blank-100g",
+                "storage_pci": null,
+                "pxehost": false,
+                "cdrom": "dsxair-discovery-1786747748",
+                "boot": [
+                    "hd",
+                    "cdrom"
+                ],
+                "features": {
+                    "uefi": false
+                }
+            }
+        },
+        "links": []
+    },
+    "name": "ocp-cluster"
+}

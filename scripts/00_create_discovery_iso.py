@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Create an Assisted Installer SaaS SNO cluster + infraenv and download the
+Create an Assisted Installer SaaS cluster + infraenv and download the
 discovery ISO locally.
 
 Uses ailib (from the aicli package) against https://api.openshift.com.
@@ -10,6 +10,7 @@ OCP_VERSION, and an SSH public key (SSH_PUBLIC_KEY_PATH or ~/.ssh default).
 Run from scripts/:
     uv run 00_create_discovery_iso.py
     uv run 00_create_discovery_iso.py --force   # delete and recreate
+    CLUSTER_PROFILE=multinode uv run 00_create_discovery_iso.py
 """
 from __future__ import annotations
 
@@ -39,16 +40,23 @@ def _infraenv_exists(ai: AssistedClient, name: str) -> bool:
     return any(e.get("name") == name for e in ai.list_infra_envs())
 
 
-def _cluster_overrides() -> dict:
-    return {
+def _cluster_overrides(*, multinode: bool) -> dict:
+    overrides = {
         "openshift_version": env_config.ocp_version(),
         "cpu_architecture": "x86_64",
         "pull_secret": str(env_config.pull_secret_path()),
         "ssh_public_key": env_config.ssh_public_key(),
         "base_dns_domain": env_config.base_dns_domain(),
-        "sno": True,
+        "sno": not multinode,
         "infraenv": "false",
     }
+    if multinode:
+        # Non-SNO HA: derive CP count from topology (do not set high_availability_mode None).
+        overrides["control_plane_count"] = env_config.control_plane_count()
+        overrides["user_managed_networking"] = False
+        overrides["api_vip"] = env_config.api_vip()
+        overrides["ingress_vip"] = env_config.ingress_vip()
+    return overrides
 
 
 def _infraenv_overrides(cluster: str) -> dict:
@@ -62,15 +70,16 @@ def _infraenv_overrides(cluster: str) -> dict:
     }
 
 
-def _ensure_cluster(ai: AssistedClient, name: str, *, force: bool) -> None:
+def _ensure_cluster(ai: AssistedClient, name: str, *, force: bool, multinode: bool) -> None:
     exists = _cluster_exists(ai, name)
     if exists and not force:
         print(f"Reusing existing Assisted Installer cluster {name!r}.")
         return
     if exists and force:
         print(f"Deleting existing cluster {name!r} (--force) ...")
-    print(f"Creating Assisted Installer SNO cluster {name!r} ...")
-    ai.create_cluster(name, _cluster_overrides(), force=force)
+    kind = "multinode" if multinode else "SNO"
+    print(f"Creating Assisted Installer {kind} cluster {name!r} ...")
+    ai.create_cluster(name, _cluster_overrides(multinode=multinode), force=force)
 
 
 def _ensure_infraenv(ai: AssistedClient, cluster: str, infraenv: str, *, force: bool) -> None:
@@ -106,21 +115,27 @@ def main() -> None:
         action="store_true",
         help="Delete and recreate the cluster/infraenv if they already exist.",
     )
+    parser.add_argument(
+        "--profile",
+        choices=("sno", "multinode"),
+        help="Cluster profile (default: CLUSTER_PROFILE env or sno).",
+    )
     args = parser.parse_args()
 
+    multinode = (args.profile or env_config.cluster_profile()) == "multinode"
     name = env_config.cluster_name()
     infraenv = f"{name}_infra-env"
     dest = env_config.discovery_iso_path()
 
     ai = _get_client()
-    _ensure_cluster(ai, name, force=args.force)
+    _ensure_cluster(ai, name, force=args.force, multinode=multinode)
     _ensure_infraenv(ai, name, infraenv, force=args.force)
     _download_iso(ai, infraenv, dest)
 
+    cdrom_name = env_config.node_cdrom_image()
     print(
-        "\nNext: upload the ISO to Air as "
-        f"{env_config.DEFAULT_DISCOVERY_ISO_NAME!r}:\n"
-        f"  DISCOVERY_ISO_PATH={dest} uv run upload_discovery_iso.py\n"
+        "\nNext: upload the ISO to Air (must match topology cdrom name):\n"
+        f"  DISCOVERY_ISO_PATH={dest} uv run upload_discovery_iso.py --name {cdrom_name}\n"
     )
 
 

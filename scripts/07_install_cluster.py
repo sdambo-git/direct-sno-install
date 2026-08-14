@@ -20,8 +20,8 @@ import sys
 import time
 from pathlib import Path
 
-from air_common import boot_node_to_disk, get_api, get_simulation
-from assisted_common import cluster_hosts, get_client, primary_oob_ipv4
+from air_common import boot_node_to_disk, default_node_name, get_api, get_simulation
+from assisted_common import cluster_hosts, get_client, host_oob_ipv4s, hosts_by_topology_name
 from assisted_poll import (
     PollSnapshot,
     PollTracker,
@@ -41,7 +41,7 @@ def _machine_network_cidr() -> str:
     return f"{raw}.0/24"
 
 
-def _configure_cluster(ai, name: str, oob_ip: str) -> None:
+def _configure_cluster(ai, name: str) -> None:
     cluster = ai.client.v2_get_cluster(cluster_id=ai.get_cluster_id(name)).to_dict()
     machine_networks = cluster.get("machine_networks") or []
     cidr = _machine_network_cidr()
@@ -50,20 +50,33 @@ def _configure_cluster(ai, name: str, oob_ip: str) -> None:
     if not any(m.get("cidr") == cidr for m in machine_networks):
         updates["machine_networks"] = [cidr]
 
-    is_sno = cluster.get("high_availability_mode") in (None, "None")
-    if is_sno:
+  # Multinode and HA clusters need API/Ingress VIPs unless user-managed networking.
+    user_managed = bool(cluster.get("user_managed_networking"))
+    needs_vips = (env_config.is_multinode() or cluster.get(
+        "high_availability_mode"
+    ) not in (None, "None")) and not user_managed
+    if not needs_vips:
         if not updates:
-            print("Cluster networking already configured (SNO; VIPs not required).")
+            if user_managed and env_config.is_multinode():
+                print(
+                    "Cluster networking already configured "
+                    "(user-managed networking; VIPs not set via AI)."
+                )
+            else:
+                print("Cluster networking already configured (SNO; VIPs not required).")
             return
         print(f"Updating cluster {name!r}: {updates}")
         ai.update_cluster(name, updates)
         return
 
+    api_vip = env_config.api_vip()
+    ingress_vip = env_config.ingress_vip()
     api_vips = [v.get("ip") for v in (cluster.get("api_vips") or []) if v.get("ip")]
     ingress_vips = [v.get("ip") for v in (cluster.get("ingress_vips") or []) if v.get("ip")]
-    if oob_ip not in api_vips or oob_ip not in ingress_vips:
-        updates["api_vip"] = oob_ip
-        updates["ingress_vip"] = oob_ip
+    if api_vip not in api_vips:
+        updates["api_vip"] = api_vip
+    if ingress_vip not in ingress_vips:
+        updates["ingress_vip"] = ingress_vip
 
     if not updates:
         print("Cluster networking already configured.")
@@ -73,7 +86,22 @@ def _configure_cluster(ai, name: str, oob_ip: str) -> None:
     ai.update_cluster(name, updates)
 
 
-def _wait_for_installable_host(ai, name: str, *, timeout: int = 600) -> dict:
+def _assign_host_roles(ai) -> None:
+    if not env_config.is_multinode():
+        return
+    mapping = hosts_by_topology_name(ai)
+    for topo_name, host in mapping.items():
+        role = env_config.host_role_for_topology_node(topo_name)
+        ai_hostname = host.get("requested_hostname") or host.get("id")
+        current_role = host.get("role")
+        if current_role == role:
+            continue
+        print(f"Assigning role {role!r} to host {ai_hostname!r} (topology {topo_name!r}) ...")
+        ai.update_host(ai_hostname, {"role": role})
+
+
+def _wait_for_installable_hosts(ai, name: str, *, timeout: int = 900) -> list[dict]:
+    required = env_config.expected_hosts()
     deadline = time.monotonic() + timeout
     tracker = PollTracker()
     poll_num = 0
@@ -86,10 +114,12 @@ def _wait_for_installable_host(ai, name: str, *, timeout: int = 600) -> dict:
         if issues:
             print_action_block(issues, consecutive=max(streak, 1))
 
+        ready = [
+            h for h in hosts
+            if h.get("status") in {"known", "ready"} and host_oob_ipv4s(h)
+        ]
         for host in hosts:
             status = host.get("status")
-            if status in {"known", "ready"}:
-                return host
             if status in {"error", "cancelled"}:
                 raise SystemExit(
                     f"Host {host.get('requested_hostname')} is {status!r}: "
@@ -99,14 +129,27 @@ def _wait_for_installable_host(ai, name: str, *, timeout: int = 600) -> dict:
         summary = ", ".join(
             f"{h.get('requested_hostname')}={h.get('status')}" for h in hosts
         ) or "no hosts"
-        print(f"  [{poll_num}] waiting for installable host ({summary})")
+        if len(ready) >= required:
+            print(f"All {len(ready)} required host(s) are installable:")
+            for host in ready:
+                ips = host_oob_ipv4s(host)
+                print(
+                    f"  - {host.get('requested_hostname')}: "
+                    f"status={host.get('status')} oob={ips[0] if ips else '-'}"
+                )
+            return ready
+
+        print(
+            f"  [{poll_num}] waiting for {required} installable host(s) "
+            f"({len(ready)}/{required} ready; {summary})"
+        )
 
         abort, reason = tracker.should_abort(max_action_streak=6)
         if abort:
             raise SystemExit(f"{reason}\n{format_issues(issues)}")
 
         if time.monotonic() > deadline:
-            raise SystemExit(f"Timed out waiting for installable host ({summary}).")
+            raise SystemExit(f"Timed out waiting for installable hosts ({summary}).")
         time.sleep(15)
 
 
@@ -126,7 +169,7 @@ def _wait_installed(
 ) -> None:
     deadline = time.monotonic() + timeout
     tracker = PollTracker()
-    boot_to_disk_done = False
+    boot_to_disk_done: set[str] = set()
     poll_num = 0
     print(f"Waiting up to {timeout}s for cluster {name!r} to finish installing ...")
 
@@ -147,19 +190,24 @@ def _wait_installed(
 
         host_summary = []
         for host in hosts:
+            hostname = host.get("requested_hostname") or host.get("id")
             stage, info = host_stage(host)
             host_summary.append(
-                f"{host.get('requested_hostname')} status={host.get('status')} "
+                f"{hostname} status={host.get('status')} "
                 f"stage={stage!r} info={info!r}"
             )
-            if auto_boot_to_disk and not boot_to_disk_done and _should_boot_to_disk(host):
+            if (
+                auto_boot_to_disk
+                and hostname not in boot_to_disk_done
+                and _should_boot_to_disk(host)
+            ):
                 print(
-                    f"Host reached {stage!r}; switching Air boot order to disk ...",
+                    f"Host {hostname} reached {stage!r}; switching Air boot order to disk ...",
                     flush=True,
                 )
                 sim = get_simulation(get_api())
-                boot_node_to_disk(sim, force=True)
-                boot_to_disk_done = True
+                boot_node_to_disk(sim, node_name=default_node_name(), force=True)
+                boot_to_disk_done.add(hostname)
                 tracker.note_boot_to_disk()
                 post_issues = check_air_post_boot_to_disk()
                 if post_issues:
@@ -196,6 +244,7 @@ def _wait_installed(
 
 def _download_credentials(ai, name: str, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
+    ai.refresh_token()
     ai.download_kubeconfig(name, str(dest))
     ai.download_kubeadminpassword(name, str(dest))
     print(f"Downloaded kubeconfig and kubeadmin password into {dest}")
@@ -227,22 +276,32 @@ def main() -> None:
     )
     parser.add_argument(
         "--oob-ip",
-        help="Override detected OOB IPv4 (default: from host inventory).",
+        help="Override detected OOB IPv4 for post-boot polling (default: first host).",
+    )
+    parser.add_argument(
+        "--skip-role-assignment",
+        action="store_true",
+        help="Skip automatic host role assignment (if assign_host_roles.py was run).",
     )
     args = parser.parse_args()
 
     name = env_config.cluster_name()
     ai = get_client(quiet=False)
-    oob_ip = args.oob_ip or primary_oob_ipv4(ai, name)
-    print(f"Using OOB IPv4 {oob_ip} for machine network / VIP configuration.")
 
-    host = _wait_for_installable_host(ai, name)
-    print(
-        f"Host {host.get('requested_hostname')!r} is {host.get('status')!r} "
-        f"({host.get('status_info')})."
-    )
+    ready_hosts = _wait_for_installable_hosts(ai, name)
+    if not args.skip_role_assignment:
+        _assign_host_roles(ai)
 
-    _configure_cluster(ai, name, oob_ip)
+    if env_config.is_multinode():
+        print(
+            f"Multinode networking: machine network {_machine_network_cidr()}, "
+            f"API VIP {env_config.api_vip()}, Ingress VIP {env_config.ingress_vip()}."
+        )
+    else:
+        oob_ip = args.oob_ip or host_oob_ipv4s(ready_hosts[0])[0]
+        print(f"Using OOB IPv4 {oob_ip} for machine network configuration.")
+
+    _configure_cluster(ai, name)
 
     if args.configure_only:
         print("Configure-only mode; not starting install.")
@@ -264,6 +323,8 @@ def main() -> None:
             "then installed hd wins on reboot)."
         )
     ai.start_cluster(name)
+
+    oob_ip = args.oob_ip or host_oob_ipv4s(ready_hosts[0])[0]
     _wait_installed(
         ai,
         name,
@@ -275,9 +336,12 @@ def main() -> None:
 
     cache = Path(__file__).resolve().parent.parent / ".cache"
     _download_credentials(ai, name, cache)
+    verify_target = env_config.api_vip() if env_config.is_multinode() else oob_ip
     print(
-        f"\nNext: verify with kubeconfig at {cache / f'kubeconfig.{name}'} "
-        f"(run 08_verify_cluster.py via jump host if needed)."
+        f"\nNext: verify with kubeconfig at {cache / f'kubeconfig.{name}'}\n"
+        f"Tunnel example (multinode): ssh -N -L 127.0.0.1:6443:{verify_target}:6443 "
+        f"<jump-host-ssh-command>\n"
+        f"  oc get nodes --server=https://127.0.0.1:6443 --insecure-skip-tls-verify"
     )
 
 

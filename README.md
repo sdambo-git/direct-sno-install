@@ -5,8 +5,9 @@ discovery ISO on NVIDIA DSX / NVIDIA Air — no seed image, no Lifecycle
 Agent, no `MachineConfig` partition tricks, no `cdrom`-swap sequence. One
 Air node, one boot, one install.
 
-This fork supports the **SNO-only** topology in `topology.json`. Multi-node
-Air topologies are still evolving upstream; do not treat them as ready here.
+This fork supports **SNO** (`topology.json`) and an R&D **multinode profile**
+(`topology-multinode.json`: 3-node HA, 3 control-plane masters). See
+[Multinode profile](#multinode-profile-3-node-ha) below.
 
 ## Prerequisites
 
@@ -22,9 +23,8 @@ Air topologies are still evolving upstream; do not treat them as ready here.
 - `qemu-img` on PATH (to create the sparse `blank-100g` disk).
 - Python deps via `uv sync` from this repo (`aicli` + `nv-air-sdk`).
 
-SNO sizing in `topology.json`: 16 vCPU / 64 GB RAM / 100 GB disk. Check your
-org storage budget before raising `storage` — Air rejects imports that
-exceed the org cap (commonly 100 GB total).
+SNO sizing in `topology.json`: 16 vCPU / 64 GB RAM / 100 GB disk per node.
+Check your org quota in the Air UI before importing a multinode topology.
 
 ## Auth and inputs (env / files)
 
@@ -38,7 +38,15 @@ not hardcode secrets in the repo.
 | Pull secret | `PULL_SECRET_PATH` (path to JSON file) |
 | SSH public key | `SSH_PUBLIC_KEY_PATH` (default `~/.ssh/id_ed25519.pub` or `id_rsa.pub`) |
 | OpenShift version | `OCP_VERSION` (**required**, e.g. `4.19`) |
-| Cluster name | `CLUSTER_NAME` (default `sno-cluster`) |
+| Cluster name | `CLUSTER_NAME` (default `sno-cluster`, or `ocp-cluster` when `CLUSTER_PROFILE=multinode`) |
+| Cluster profile | `CLUSTER_PROFILE` (`sno` default, or `multinode`) |
+| Topology manifest | `TOPOLOGY_PATH` (default `topology.json` or `topology-multinode.json`) |
+| Expected AI hosts | `EXPECTED_HOSTS` (default: node count in topology) |
+| Control plane count | `CONTROL_PLANE_COUNT` (default: CP nodes in topology) |
+| Control plane nodes | `CONTROL_PLANE_NODES` (comma-separated override) |
+| API VIP (multinode) | `API_VIP` (default `192.168.200.10`) |
+| Ingress VIP (multinode) | `INGRESS_VIP` (default `192.168.200.11`) |
+| Control plane node | `CONTROL_PLANE_NODE` (default: first `*cp*` name in topology) |
 | Base DNS domain | `BASE_DNS_DOMAIN` (default `dsx.air.local`) |
 | Local discovery ISO path | `DISCOVERY_ISO_PATH` / `ISO_PATH` (default `.cache/dsxair-discovery.iso`) |
 | Jump host new password | `JUMP_HOST_PASSWORD` (default `redhat`) |
@@ -379,6 +387,80 @@ This only works directly from your laptop if you can route to
   point `KUBECONFIG`'s server URL at `https://localhost:6443`.
 - Or create an Air **Service** (HTTPS / port `6443` on the node's `eth0`)
   and point DNS / kubeconfig at that public FQDN.
+
+## Multinode profile (3-node HA)
+
+R&D profile for greenfield **3 control-plane HA** on DSX Air. Uses the same
+blank-disk boot pattern as SNO; adds Assisted Installer VIPs and host role
+assignment (all CP nodes are `master`).
+
+**Resource budget** (per node in `topology-multinode.json`):
+
+| Node | vCPU | RAM | Disk |
+|------|------|-----|------|
+| `ocp-cp-0` | 16 | 64 GB | 100 GB |
+| `ocp-cp-1` | 16 | 64 GB | 100 GB |
+| `ocp-cp-2` | 16 | 64 GB | 100 GB |
+
+Tear down other **ACTIVE** simulations in the Air UI before importing
+`topology-multinode.json` — Air refuses a second import with the same name,
+and quota is shared across the org.
+
+### Multinode quick path
+
+```bash
+cd scripts
+export CLUSTER_PROFILE=multinode
+export CLUSTER_NAME=ocp-cluster
+export OCP_VERSION=4.19
+export EXPECTED_HOSTS=3
+# AIR_API_KEY, AI_OFFLINETOKEN, PULL_SECRET_PATH ...
+
+uv run delete_assisted_cluster.py --yes
+uv run 00_create_discovery_iso.py --force --profile multinode
+
+ISO_NAME="dsxair-discovery-$(date +%s)"
+uv run upload_discovery_iso.py --name "$ISO_NAME"
+# Set all topology cdrom fields to $ISO_NAME, then:
+uv run upload_blank_disk.py
+uv run 01_create_simulation.py
+uv run 06_wait_for_host_ipv4.py --require-known --min-hosts 3
+uv run assign_host_roles.py          # optional; 07 also assigns roles
+uv run 07_install_cluster.py --configure-only   # gate before install
+uv run 07_install_cluster.py
+```
+
+After install, tunnel to the **API VIP** (not a node IP):
+
+```bash
+# From bootstrap_jump_host.py / 01 output
+ssh -N -L 127.0.0.1:6443:192.168.200.10:6443 -p <port> ubuntu@<jump-host-fqdn>
+
+export KUBECONFIG=../.cache/kubeconfig.ocp-cluster
+oc get nodes --server=https://127.0.0.1:6443 --insecure-skip-tls-verify
+```
+
+Default VIPs: `API_VIP=192.168.200.10`, `INGRESS_VIP=192.168.200.11`.
+Override if they conflict with DHCP leases.
+
+**Fresh ISO name:** After `00 --force`, upload under a **new** Air image name
+and update every node's `cdrom` in `topology-multinode.json`. Do not rely on
+`--replace` on the same image name — Air may serve a stale CDROM cache.
+
+### Phased validation
+
+| Phase | Success | If it fails |
+|-------|---------|-------------|
+| P1 Discovery | 3 hosts in AI with OOB `192.168.200.x` | Topology, ISO, OOB networking |
+| P2 Roles + VIPs | AI networking validations pass; cluster `ready` | `assign_host_roles.py`, VIP conflicts |
+| P3 Install | Cluster `installed` | `09_recover_to_discovery.py --node <name>` |
+| P4 Verify | `oc get nodes` → 3 Ready | Tunnel to API VIP, refresh AI token |
+
+Per-node recovery:
+
+```bash
+uv run 09_recover_to_discovery.py --node ocp-cp-1
+```
 
 ## Scripts reference
 

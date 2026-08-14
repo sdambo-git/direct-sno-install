@@ -1,36 +1,22 @@
 #!/usr/bin/env python3
 """
-Step 3 of ../README.md — create the Air simulation from ../topology.json
+Step 3 of ../README.md — create the Air simulation from the topology manifest
 and start it.
 
-This is the step that brings the whole lab up: it creates the
-`sno-cluster` node itself, and — because topology.json omits an explicit
-`"oob"` key (which defaults to on) and wires no other link to `eth0` —
-Air automatically provisions two extra nodes alongside it:
+This is the step that brings the whole lab up: it creates the OCP node(s) from
+topology.json (or topology-multinode.json), and — because the manifest omits an
+explicit `"oob"` key (which defaults to on) and wires no other link to `eth0` —
+Air automatically provisions two extra nodes alongside:
 
     - oob-mgmt-switch-leaf-1   (the virtual switch for the OOB network)
     - oob-mgmt-server          (DHCP/DNS/NAT gateway for 192.168.200.0/24)
 
-You don't define those two in topology.json; they're implicit
-infrastructure Air creates for you the moment a node's `eth0` is left on
-the default OOB network. This script just imports the manifest and starts
-it — nothing more.
-
-Prerequisite: Air images referenced by topology.json must already exist:
-"cdrom" dsxair-discovery-iso (upload_discovery_iso.py) and "os"
-blank-100g (upload_blank_disk.py).
-
-This also sets up the SSH jump host onto oob-mgmt-server (see
-04_create_jump_host_service.py) so you walk away from this one script with
-both the node booting from the discovery ISO *and* a working way to reach
-its private OOB address afterward.
+Prerequisite: Air images referenced by the topology must already exist.
 
 Run:
     python 01_create_simulation.py
 """
 from __future__ import annotations
-
-from pathlib import Path
 
 from air_common import (
     ensure_jump_host_ready,
@@ -38,8 +24,7 @@ from air_common import (
     jump_host_ssh_command,
     wait_for_sim_state,
 )
-
-TOPOLOGY_PATH = Path(__file__).resolve().parent.parent / "topology.json"
+import env_config
 
 
 def _print_jump_host(sim) -> None:
@@ -55,19 +40,22 @@ def _print_jump_host(sim) -> None:
 
 def main() -> None:
     api = get_api()
+    topology_path = env_config.topology_path()
+    sim_name = env_config.simulation_name()
+    node_names = env_config.topology_node_names()
 
-    existing = [s for s in api.simulations.list(search="sno-cluster") if s.name == "sno-cluster"]
+    existing = [s for s in api.simulations.list(search=sim_name) if s.name == sim_name]
     if existing:
         sim = existing[0]
-        print(f"Simulation 'sno-cluster' already exists (id={sim.id}, state={sim.state!r}).")
+        print(f"Simulation {sim_name!r} already exists (id={sim.id}, state={sim.state!r}).")
         print("Delete it first in the Air UI if you want a truly fresh start, "
-              "or use 02_attach_discovery_iso.py / 03_boot_to_disk.py to manage it as-is.")
+              "or use 02_attach_discovery_iso.py / 09_recover_to_discovery.py to manage it.")
         _print_jump_host(sim)
         return
 
-    print(f"Importing {TOPOLOGY_PATH} and starting the simulation ...")
+    print(f"Importing {topology_path} and starting simulation {sim_name!r} ...")
     sim = api.simulations.import_from_simulation_manifest(
-        simulation_manifest=TOPOLOGY_PATH,
+        simulation_manifest=topology_path,
         attempt_start=True,
     )
     print(f"Simulation created: id={sim.id} name={sim.name!r} state={sim.state!r}")
@@ -80,9 +68,10 @@ def main() -> None:
 
     _print_jump_host(sim)
 
+    nodes_hint = ", ".join(node_names) if node_names else sim_name
     print(
-        "\nWatch sno-cluster boot from the node console in the Air UI, then "
-        "continue with Step 4 in ../README.md (Assisted Installer host discovery)."
+        f"\nWatch {nodes_hint} boot from the discovery ISO in the Air UI, then "
+        "continue with 06_wait_for_host_ipv4.py (Assisted Installer host discovery)."
     )
 
 

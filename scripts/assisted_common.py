@@ -49,3 +49,62 @@ def primary_oob_ipv4(ai: AssistedClient, cluster_name: str | None = None) -> str
     raise SystemExit(
         "No host with an OOB IPv4 found. Run 06_wait_for_host_ipv4.py first."
     )
+
+
+def _host_matches_topology(host: dict, topology_name: str) -> bool:
+    requested = (host.get("requested_hostname") or "").lower()
+    inventory_hostname = ""
+    inventory_raw = host.get("inventory")
+    if inventory_raw:
+        try:
+            inventory = (
+                json.loads(inventory_raw) if isinstance(inventory_raw, str) else inventory_raw
+            )
+            inventory_hostname = (inventory.get("hostname") or "").lower()
+        except (TypeError, json.JSONDecodeError):
+            pass
+    needle = topology_name.lower()
+    return needle in requested or needle in inventory_hostname or requested.startswith(needle)
+
+
+def host_for_topology_node(ai: AssistedClient, topology_name: str) -> dict | None:
+    for host in cluster_hosts(ai):
+        if _host_matches_topology(host, topology_name):
+            return host
+    return None
+
+
+def hosts_by_topology_name(ai: AssistedClient) -> dict[str, dict]:
+    mapping: dict[str, dict] = {}
+    unmatched = list(cluster_hosts(ai))
+    for topo_name in env_config.topology_node_names():
+        match = next((h for h in unmatched if _host_matches_topology(h, topo_name)), None)
+        if match is not None:
+            mapping[topo_name] = match
+            unmatched.remove(match)
+    if unmatched and env_config.topology_node_names():
+        for host, topo_name in zip(unmatched, env_config.topology_node_names()):
+            if topo_name not in mapping:
+                mapping[topo_name] = host
+    return mapping
+
+
+def all_hosts_oob_ready(
+    ai: AssistedClient,
+    *,
+    min_hosts: int | None = None,
+    require_known: bool = False,
+) -> tuple[bool, list[dict]]:
+    """Return (ready, hosts) when min_hosts have OOB IPs (and optionally known/ready)."""
+    required = min_hosts if min_hosts is not None else env_config.expected_hosts()
+    hosts = cluster_hosts(ai)
+    ready_hosts: list[dict] = []
+    for host in hosts:
+        ips = host_oob_ipv4s(host)
+        status = host.get("status")
+        if not ips:
+            continue
+        if require_known and status not in {"known", "ready"}:
+            continue
+        ready_hosts.append(host)
+    return len(ready_hosts) >= required, ready_hosts
