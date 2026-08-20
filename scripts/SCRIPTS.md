@@ -12,6 +12,19 @@ Auth / inputs are resolved by `env_config.py` — see the README table for
 `AIR_API_KEY`, `AI_OFFLINETOKEN`, `PULL_SECRET_PATH`, `OCP_VERSION`,
 `CLUSTER_PROFILE`, and related variables.
 
+## Demo CLI (`dsx-air`)
+
+For screen-sharing an **existing** multinode lab (`ocp-cluster`) — start sim,
+print tunnel command, run `oc` checks — without the full install flow:
+
+```bash
+export CLUSTER_PROFILE=multinode
+uv run dsx-air demo
+```
+
+Commands: `start`, `status`, `tunnel`, `cluster`, `operators`, `demo`.
+Package: `scripts/dsx_air/`. Full walkthrough: [../DEMO.md](../DEMO.md).
+
 ## Normal install flow — SNO (in order)
 
 | # | Script | Run when | What it does |

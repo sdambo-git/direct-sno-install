@@ -78,16 +78,18 @@ wheels = [
 [[package]]
 name = "dsx-air-ocp"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "aicli" },
     { name = "nv-air-sdk" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aicli", specifier = ">=99.0.0" },
     { name = "nv-air-sdk", specifier = ">=1.6.1" },
+    { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [[package]]

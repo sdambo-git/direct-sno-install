@@ -7,4 +7,18 @@ requires-python = ">=3.14"
 dependencies = [
     "aicli>=99.0.0",
     "nv-air-sdk>=1.6.1",
+    "pyyaml>=6.0",
 ]
+
+[project.scripts]
+dsx-air = "dsx_air.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+only-include = ["scripts/dsx_air"]
+
+[tool.hatch.build.targets.wheel.sources]
+"scripts/dsx_air" = "dsx_air"
