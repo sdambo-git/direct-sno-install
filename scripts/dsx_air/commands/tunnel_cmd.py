@@ -1,21 +1,30 @@
 from __future__ import annotations
 
-from dsx_air import air_status, kubeconfig, oc_checks, tunnel
+import sys
+
+from dsx_air import air_status, tunnel
 from dsx_air.air_status import AirLookupError
-from dsx_air.output import Report
+
+_MISSING_KEY_MSG = (
+    "Set AIR_API_KEY (Ami org) to resolve jump host port from Air API."
+)
 
 
 def run_tunnel(*, check: bool = False) -> int:
     profile = air_status.profile_info()
-    jump_ssh = ""
+    jump_target: tunnel.JumpTarget | None = None
     try:
         jump = air_status.jump_host_info()
-        jump_ssh = jump["ssh"]
+        jump_target = air_status.jump_target_from_info(jump)
     except AirLookupError as exc:
-        print(f"Warning: {exc}")
-        jump_ssh = "<set AIR_API_KEY and ensure sim ACTIVE>"
+        print(exc, file=sys.stderr)
+        return 1
 
-    cmd = tunnel.build_tunnel_command(jump_ssh=jump_ssh, api_vip=profile["api_vip"])
+    if jump_target is None:
+        print(_MISSING_KEY_MSG, file=sys.stderr)
+        return 1
+
+    cmd = tunnel.build_tunnel_command(target=jump_target, api_vip=profile["api_vip"])
     print(cmd)
 
     if not check:

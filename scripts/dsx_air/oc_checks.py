@@ -13,8 +13,8 @@ import env_config  # noqa: E402
 
 OPERATORS = (
     ("NFD", "openshift-nfd", "nfd"),
-    ("NMState", "nmstate", "kubernetes-nmstate-operator"),
-    ("SR-IOV", "sriov-network-operator", "sriov-network-operator"),
+    ("NMState", "openshift-nmstate", "kubernetes-nmstate-operator"),
+    ("SR-IOV", "openshift-sriov-network-operator", "sriov-network-operator"),
 )
 
 

@@ -62,6 +62,7 @@ def run_status(*, compact: bool = False) -> int:
 
     sim_state = ""
     jump_ssh = ""
+    jump_target: tunnel.JumpTarget | None = None
     try:
         sim = air_status.simulation_info()
         sim_state = sim["state"]
@@ -76,6 +77,7 @@ def run_status(*, compact: bool = False) -> int:
 
         jump = air_status.jump_host_info()
         jump_ssh = jump["ssh"]
+        jump_target = air_status.jump_target_from_info(jump)
         report.section("Jump host")
         report.kv("ssh", jump_ssh or "(unavailable)")
         report.kv("ready", jump["ready"])
@@ -87,9 +89,15 @@ def run_status(*, compact: bool = False) -> int:
         report.warn(str(exc))
 
     api_vip = profile["api_vip"]
-    tunnel_cmd = tunnel.build_tunnel_command(jump_ssh=jump_ssh or "<jump-host-ssh>", api_vip=api_vip)
     report.section("Tunnel command")
-    report.line(f"  {tunnel_cmd}")
+    if jump_target:
+        tunnel_cmd = tunnel.build_tunnel_command(target=jump_target, api_vip=api_vip)
+        report.line(f"  {tunnel_cmd}")
+    else:
+        report.kv("status", "unavailable (set AIR_API_KEY for Ami org)")
+        report.warn(
+            "Set AIR_API_KEY (Ami org) to resolve jump host port from Air API"
+        )
 
     reachable, reach_reason = tunnel.api_reachable()
     report.section("API reachable")

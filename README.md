@@ -388,18 +388,18 @@ This only works directly from your laptop if you can route to
 - Or create an Air **Service** (HTTPS / port `6443` on the node's `eth0`)
   and point DNS / kubeconfig at that public FQDN.
 
-## Demo (Ami meeting)
+## Shared lab guide
 
-For a **Google Meet walkthrough** of the existing multinode lab (`ocp-cluster`)
-without re-running install scripts `00`–`07`, use the demo CLI:
+To operate the existing multinode lab (`ocp-cluster`) in Ami's org without
+re-running install scripts `00`–`07`, use the demo CLI:
 
 ```bash
 export CLUSTER_PROFILE=multinode
 uv run dsx-air demo
 ```
 
-See **[DEMO.md](DEMO.md)** for two-terminal setup (SSH tunnel + commands),
-talking points, and sim protection rules. Operator Ansible results:
+See **[DEMO.md](DEMO.md)** for setup, two-terminal tunnel workflow, commands, and
+troubleshooting. Operator Ansible results:
 [docs/air-ansible-phase1-results.md](docs/air-ansible-phase1-results.md).
 
 ## Multinode profile (3-node HA)

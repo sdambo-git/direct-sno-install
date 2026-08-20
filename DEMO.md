@@ -1,46 +1,84 @@
-# Demo: OpenShift on DSX Air (Ami / Shahar meeting)
+# OpenShift on DSX Air — Lab guide
 
-One-page guide for screen-sharing a **working multinode lab** without hunting
-through numbered install scripts. Uses the existing `ocp-cluster` simulation only
-— no re-install, no sim delete/import.
+Operate the shared **`ocp-cluster`** simulation in Ami's org. No install, no sim
+delete.
 
-Full install docs remain in [README.md](README.md) and [scripts/SCRIPTS.md](scripts/SCRIPTS.md).
+Full greenfield install docs: [README.md](README.md) and
+[scripts/SCRIPTS.md](scripts/SCRIPTS.md).
 
-## Prerequisites
+## What this lab is
 
-- Simulation **`ocp-cluster`** already installed (3-node HA multinode profile).
-- Kubeconfig at `.cache/kubeconfig.ocp-cluster` (from `07_install_cluster.py`).
-- `uv sync` from repo root; `oc` in PATH on your laptop.
-- `AIR_API_KEY` for `start` / Air sections of `status` (not required for `demo` once the sim is up and tunnel is running).
+| Item | Value |
+|------|-------|
+| Simulation | `ocp-cluster` |
+| Simulation ID | `c5a70d5b-22cc-42d7-8931-90d0d2f1c45b` |
+| OpenShift | 4.19.x, 3-node HA |
+| Nodes | `ocp-cp-0` … `ocp-cp-2` (control-plane, master, worker labels) |
+| API VIP | `192.168.200.10` |
+| Operators | NFD, NMState, SR-IOV ([phase 1 results](docs/air-ansible-phase1-results.md)) |
+| Known gap | `0` `SriovNetworkNodePolicy` — no SR-IOV NICs in the sim |
+
+## Before you start
+
+| Requirement | Details |
+|-------------|---------|
+| Org | **Ami org** (`Ami_RH_NV_TECH_PRTNR`) — personal-org API keys will not see this sim |
+| API key | NGC Personal API Key with **NVIDIA Air** enabled; regenerate after role changes |
+| Kubeconfig | `.cache/kubeconfig.ocp-cluster` from the maintainer (gitignored) |
+| Tools | `uv`, `oc` on PATH |
+| Do **not** run | `00`–`07`, `upload_discovery_iso.py`, `upload_blank_disk.py` |
+
+## Setup
 
 ```bash
+git clone <repo-url> direct-sno-install
+cd direct-sno-install
+uv sync
+
 export CLUSTER_PROFILE=multinode
-export AIR_API_KEY=...   # optional for demo if sim already ACTIVE
+export AIR_API_KEY=...    # Ami org key
+
+mkdir -p .cache
+cp /path/from/maintainer/kubeconfig.ocp-cluster .cache/
 ```
 
-## Demo eve setup (two terminals)
+Confirm the simulation appears in the Air UI under Ami's org before proceeding.
 
-**Terminal 2 — keep tunnel open**
+## Run the lab (two terminals)
+
+**Terminal 2 — API tunnel (leave open)**
 
 ```bash
-cd /path/to/direct-sno-install
+cd direct-sno-install
 export CLUSTER_PROFILE=multinode
+export AIR_API_KEY=...
+
 uv run dsx-air tunnel
-# copy/paste the printed ssh -N -L ... command
+# Copy and run the printed ssh -N -L ... command in this terminal
 ```
 
-**Terminal 1 — drive the demo**
+Optional check:
 
 ```bash
-export CLUSTER_PROFILE=multinode
-uv run dsx-air start      # if sim INACTIVE; idempotent if already ACTIVE
-uv run dsx-air status     # read NEXT: line if anything blocked
-uv run dsx-air demo       # compact status + cluster + operators
+uv run dsx-air tunnel --check
 ```
 
-Exit code `0` = demo-ready (sim ACTIVE, API via tunnel, 3/3 nodes Ready).
+**Terminal 1 — CLI**
 
-## Command cheat sheet
+```bash
+cd direct-sno-install
+export CLUSTER_PROFILE=multinode
+export AIR_API_KEY=...
+
+uv run dsx-air start      # if sim INACTIVE; idempotent if already ACTIVE
+uv run dsx-air status     # exit 0 = ready; read NEXT: if blocked
+uv run dsx-air demo       # full health check
+```
+
+Exit code `0` means demo-ready: sim ACTIVE, API reachable via tunnel, 3/3 nodes
+Ready.
+
+## Commands reference
 
 | Command | Mutates? | Purpose |
 |---------|----------|---------|
@@ -50,21 +88,33 @@ Exit code `0` = demo-ready (sim ACTIVE, API via tunnel, 3/3 nodes Ready).
 | `tunnel --check` | No | Probe `https://127.0.0.1:6443/version` |
 | `cluster` | No | `oc get nodes`, clusterversion, MCPs |
 | `operators` | No | NFD / NMState / SR-IOV CSVs + pod summary |
-| `demo` | No | Aggregate for the call |
+| `demo` | No | Compact status + cluster + operators |
 
-## Talking points (narrative)
+## What success looks like
 
-- **Proven:** 3-node OpenShift **4.19** on DSX Air; Assisted Installer multinode path works.
-- **Operators:** Phase 1 Ansible playbooks deployed NFD, NMState, and SR-IOV operator successfully ([results](docs/air-ansible-phase1-results.md)).
-- **Expected gap:** `0` `SriovNetworkNodePolicy` — no SR-IOV NICs in the sim; E2E rail/GPU work waits on hardware emulation.
-- **Blocker:** NVIDIA HOST (x86) + ConnectX-8 plugin manifests for org `Ami_RH_NV_TECH_PRTNR` — required before Spectrum-X NIC emulation on Air.
-- **Partnership:** Repo shared with Shahar; discuss SDK/marketplace path and what “good” looks like for joint customer demos.
+- `dsx-air status` or `dsx-air demo` exits `0`
+- 3/3 nodes Ready, cluster version 4.19.x
+- Operator CSVs: `Succeeded`
+- Simulation ID unchanged in Air UI after CLI runs
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| 403 on `upload_discovery_iso.py` | Wrong workflow — use this guide, not the README install path |
+| `tunnel` exits 1, asks for `AIR_API_KEY` | Export an Ami-org key; regenerate if roles were recently added |
+| API unreachable / connection refused | Start the tunnel in Terminal 2; confirm sim is ACTIVE |
+| `oc` not found | Install the OpenShift CLI |
+| Jump host not ready | `uv run dsx-air start` |
+| Sim not visible in Air UI | Wrong org or API key — confirm Ami org key, not personal |
 
 ## Sim protection
 
-The demo CLI **never** deletes, re-imports, or replaces `ocp-cluster`. Recovery off-demo uses existing `09_recover_to_discovery.py`, not `dsx-air`.
+`dsx-air` never deletes, re-imports, or replaces `ocp-cluster`. Off-lab recovery
+uses `09_recover_to_discovery.py` (see [SCRIPTS.md](scripts/SCRIPTS.md)), not
+the demo CLI.
 
-## Fallback invocation
+## Alternative invocation
 
 ```bash
 cd scripts && uv run python -m dsx_air demo
