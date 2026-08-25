@@ -74,7 +74,7 @@ def wait_for_sim_state(sim: Simulation, *states: str, timeout: int = 180, interv
     deadline = time.monotonic() + timeout
     while True:
         sim.refresh()
-        print(f"  simulation state: {sim.state}")
+        print(f"  simulation {sim.name!r} state: {sim.state!r}")
         if sim.state in states:
             return
         if time.monotonic() > deadline:
@@ -257,6 +257,140 @@ def jump_host_ssh_probe(
         return False, "not_reachable"
     detail = (result.stderr or result.stdout or "").strip()
     return False, detail or f"ssh exit {result.returncode}"
+
+
+_HOSTS_BEGIN = "# BEGIN dsx-air-ocp"
+_HOSTS_END = "# END dsx-air-ocp"
+
+
+def cluster_dns_host_block(
+    *,
+    cluster_name: str | None = None,
+    domain: str | None = None,
+    api_vip: str | None = None,
+    ingress_vip: str | None = None,
+) -> str:
+    """Hosts-file block for SOCKS DNS on the jump host (Chrome resolves proxy-side)."""
+    cluster_name = cluster_name or env_config.cluster_name()
+    domain = domain or env_config.base_dns_domain()
+    api_vip = api_vip or env_config.api_vip()
+    ingress_vip = ingress_vip or env_config.ingress_vip()
+    base = f"{cluster_name}.{domain}"
+    apps = f"apps.{base}"
+    api_names = " ".join((f"api.{base}", f"api-int.{base}"))
+    ingress_names = " ".join(
+        (
+            f"console-openshift-console.{apps}",
+            f"oauth-openshift.{apps}",
+            f"downloads-openshift-console.{apps}",
+            f"canary-openshift-ingress-canary.{apps}",
+        )
+    )
+    return (
+        f"{_HOSTS_BEGIN}\n"
+        f"{api_vip} {api_names}\n"
+        f"{ingress_vip} {ingress_names}\n"
+        f"{_HOSTS_END}\n"
+    )
+
+
+def merge_hosts_file(existing: str, block: str) -> str:
+    """Replace or append the dsx-air-ocp hosts block."""
+    start = existing.find(_HOSTS_BEGIN)
+    end = existing.find(_HOSTS_END)
+    body = block if block.endswith("\n") else block + "\n"
+    if start != -1 and end != -1 and end >= start:
+        after = existing[end + len(_HOSTS_END) :].lstrip("\n")
+        return existing[:start].rstrip("\n") + "\n" + body + after
+    text = existing.rstrip("\n")
+    if text:
+        text += "\n"
+    return text + body
+
+
+def _jump_ssh_run(
+    service: Service,
+    server: Node,
+    remote: str,
+    *,
+    stdin: str | None = None,
+    timeout: int = 30,
+) -> subprocess.CompletedProcess[str]:
+    host, port, username = jump_host_ssh_target(service, server)
+    cmd = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=accept-new",
+        "-o",
+        "ConnectTimeout=10",
+        "-p",
+        str(port),
+        f"{username}@{host}",
+        remote,
+    ]
+    return subprocess.run(
+        cmd,
+        input=stdin,
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+    )
+
+
+def ensure_jump_host_cluster_dns(
+    service: Service,
+    server: Node,
+    *,
+    cluster_name: str | None = None,
+    domain: str | None = None,
+    api_vip: str | None = None,
+    ingress_vip: str | None = None,
+) -> None:
+    """Idempotently write cluster API/Console names into jump-host /etc/hosts.
+
+    Chromium SOCKS5 always resolves names on the proxy; MAP flags on the laptop
+    do not change that.
+    """
+    cluster_name = cluster_name or env_config.cluster_name()
+    domain = domain or env_config.base_dns_domain()
+    api_vip = api_vip or env_config.api_vip()
+    ingress_vip = ingress_vip or env_config.ingress_vip()
+    block = cluster_dns_host_block(
+        cluster_name=cluster_name,
+        domain=domain,
+        api_vip=api_vip,
+        ingress_vip=ingress_vip,
+    )
+    read = _jump_ssh_run(service, server, "cat /etc/hosts")
+    if read.returncode != 0:
+        raise SystemExit(
+            "Could not read jump host /etc/hosts for Console DNS: "
+            f"{(read.stderr or read.stdout or '').strip()}"
+        )
+    merged = merge_hosts_file(read.stdout, block)
+    if merged == read.stdout:
+        print("Jump host /etc/hosts already has cluster DNS names.")
+        return
+    write = _jump_ssh_run(
+        service,
+        server,
+        "sudo -n tee /etc/hosts >/dev/null",
+        stdin=merged,
+    )
+    if write.returncode != 0:
+        write = _jump_ssh_run(service, server, "tee /etc/hosts >/dev/null", stdin=merged)
+    if write.returncode != 0:
+        raise SystemExit(
+            "Could not update jump host /etc/hosts (need passwordless sudo). "
+            f"{(write.stderr or write.stdout or '').strip()}"
+        )
+    print(
+        "Jump host /etc/hosts updated for SOCKS DNS "
+        f"(api={api_vip} apps={ingress_vip})."
+    )
 
 
 def _wait_for_jump_host_ssh(
@@ -459,4 +593,7 @@ def ensure_jump_host_ready(
     service, server = ensure_jump_host_service(sim, service_name=service_name)
     if not skip_bootstrap:
         bootstrap_jump_host_password(service, server)
+    ready, _reason = jump_host_ssh_probe(service, server, timeout=15)
+    if ready:
+        ensure_jump_host_cluster_dns(service, server)
     return service, server

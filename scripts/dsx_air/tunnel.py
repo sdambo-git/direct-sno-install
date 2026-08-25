@@ -26,6 +26,16 @@ def build_tunnel_command(*, target: JumpTarget, api_vip: str) -> str:
     )
 
 
+def build_console_ssh_command(*, target: JumpTarget, api_vip: str) -> str:
+    """SOCKS on 1080 plus API LocalForward 6443 through the jump host."""
+    return (
+        f"ssh -N -o BatchMode=yes -o StrictHostKeyChecking=accept-new "
+        f"-D 127.0.0.1:1080 "
+        f"-L 127.0.0.1:6443:{api_vip}:6443 "
+        f"-p {target.port} {target.username}@{target.host}"
+    )
+
+
 def api_reachable(*, timeout: float = 5.0) -> tuple[bool, str]:
     """Probe OpenShift API via local tunnel (TLS verify skipped, like tunneled kubeconfig)."""
     url = "https://127.0.0.1:6443/version"

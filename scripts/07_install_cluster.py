@@ -21,7 +21,14 @@ import time
 from pathlib import Path
 
 from air_common import boot_node_to_disk, default_node_name, get_api, get_simulation
-from assisted_common import cluster_hosts, get_client, host_oob_ipv4s, hosts_by_topology_name
+from assisted_common import (
+    ai_call,
+    assign_topology_roles,
+    cluster_hosts,
+    get_client,
+    host_oob_ipv4s,
+    refresh_ai,
+)
 from assisted_poll import (
     PollSnapshot,
     PollTracker,
@@ -42,7 +49,9 @@ def _machine_network_cidr() -> str:
 
 
 def _configure_cluster(ai, name: str) -> None:
-    cluster = ai.client.v2_get_cluster(cluster_id=ai.get_cluster_id(name)).to_dict()
+    cluster = ai_call(
+        ai, lambda: ai.client.v2_get_cluster(cluster_id=ai.get_cluster_id(name)).to_dict()
+    )
     machine_networks = cluster.get("machine_networks") or []
     cidr = _machine_network_cidr()
     updates: dict = {}
@@ -66,7 +75,7 @@ def _configure_cluster(ai, name: str) -> None:
                 print("Cluster networking already configured (SNO; VIPs not required).")
             return
         print(f"Updating cluster {name!r}: {updates}")
-        ai.update_cluster(name, updates)
+        ai_call(ai, lambda: ai.update_cluster(name, updates))
         return
 
     api_vip = env_config.api_vip()
@@ -83,21 +92,11 @@ def _configure_cluster(ai, name: str) -> None:
         return
 
     print(f"Updating cluster {name!r}: {updates}")
-    ai.update_cluster(name, updates)
+    ai_call(ai, lambda: ai.update_cluster(name, updates))
 
 
 def _assign_host_roles(ai) -> None:
-    if not env_config.is_multinode():
-        return
-    mapping = hosts_by_topology_name(ai)
-    for topo_name, host in mapping.items():
-        role = env_config.host_role_for_topology_node(topo_name)
-        ai_hostname = host.get("requested_hostname") or host.get("id")
-        current_role = host.get("role")
-        if current_role == role:
-            continue
-        print(f"Assigning role {role!r} to host {ai_hostname!r} (topology {topo_name!r}) ...")
-        ai.update_host(ai_hostname, {"role": role})
+    assign_topology_roles(ai)
 
 
 def _wait_for_installable_hosts(ai, name: str, *, timeout: int = 900) -> list[dict]:
@@ -110,7 +109,7 @@ def _wait_for_installable_hosts(ai, name: str, *, timeout: int = 900) -> list[di
         cluster = get_cluster_dict(ai, name)
         hosts = cluster_hosts(ai, name)
         issues = analyze_hosts(cluster, hosts)
-        streak = tracker.record_issues([i for i in issues if i.severity == "action"])
+        streak = tracker.record_issues(issues)
         if issues:
             print_action_block(issues, consecutive=max(streak, 1))
 
@@ -184,7 +183,7 @@ def _wait_installed(
         if boot_to_disk_done:
             issues.extend(check_air_post_boot_to_disk())
             issues.extend(tracker.check_oob_after_boot(oob_ip))
-        streak = tracker.record_issues([i for i in issues if i.severity == "action"])
+        streak = tracker.record_issues(issues)
         if issues:
             print_action_block(issues, consecutive=max(streak, 1))
 
@@ -244,9 +243,9 @@ def _wait_installed(
 
 def _download_credentials(ai, name: str, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
-    ai.refresh_token()
-    ai.download_kubeconfig(name, str(dest))
-    ai.download_kubeadminpassword(name, str(dest))
+    refresh_ai(ai)
+    ai_call(ai, lambda: ai.download_kubeconfig(name, str(dest)))
+    ai_call(ai, lambda: ai.download_kubeadminpassword(name, str(dest)))
     print(f"Downloaded kubeconfig and kubeadmin password into {dest}")
 
 
@@ -322,7 +321,7 @@ def main() -> None:
             "Starting cluster install (boot order unchanged; blank hd → cdrom, "
             "then installed hd wins on reboot)."
         )
-    ai.start_cluster(name)
+    ai_call(ai, lambda: ai.start_cluster(name))
 
     oob_ip = args.oob_ip or host_oob_ipv4s(ready_hosts[0])[0]
     _wait_installed(

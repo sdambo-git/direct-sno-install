@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from dsx_air import air_status, kubeconfig, oc_checks, tunnel
 from dsx_air.air_status import AirLookupError
 from dsx_air.output import Report
+from dsx_air.spec import activate_spec
 
 
 def _render_cluster_sections(
@@ -50,7 +53,8 @@ def _render_cluster_sections(
         report.kv("detail", op_reason)
 
 
-def run_status(*, compact: bool = False) -> int:
+def run_status(*, compact: bool = False, spec_path: Path | None = None) -> int:
+    activate_spec(spec_path)
     report = Report()
 
     profile = air_status.profile_info()
@@ -63,6 +67,7 @@ def run_status(*, compact: bool = False) -> int:
     sim_state = ""
     jump_ssh = ""
     jump_target: tunnel.JumpTarget | None = None
+    jump: dict[str, str] = {}
     try:
         sim = air_status.simulation_info()
         sim_state = sim["state"]
@@ -94,9 +99,10 @@ def run_status(*, compact: bool = False) -> int:
         tunnel_cmd = tunnel.build_tunnel_command(target=jump_target, api_vip=api_vip)
         report.line(f"  {tunnel_cmd}")
     else:
-        report.kv("status", "unavailable (set AIR_API_KEY for Ami org)")
+        report.kv("status", jump.get("reason") if jump else "jump host unavailable")
         report.warn(
-            "Set AIR_API_KEY (Ami org) to resolve jump host port from Air API"
+            jump.get("reason")
+            or "Jump host not ready. Pass --spec for this lab and run dsx-air start."
         )
 
     reachable, reach_reason = tunnel.api_reachable()

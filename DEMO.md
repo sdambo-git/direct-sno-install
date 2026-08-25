@@ -1,10 +1,52 @@
 # OpenShift on DSX Air — Lab guide
 
-Operate the shared **`ocp-cluster`** simulation in Ami's org. No install, no sim
-delete.
+Two paths:
 
-Full greenfield install docs: [README.md](README.md) and
-[scripts/SCRIPTS.md](scripts/SCRIPTS.md).
+1. **Greenfield** — `dsx-air deploy --spec examples/ha-3cp-2w.yaml` (3 control
+   plane + 2 workers). Topology is generated; do not hand-edit JSON.
+2. **Operate existing** — shared **`ocp-cluster`** sim. No install, no delete
+   unless you pass `destroy --spec` / `--replace`.
+
+Numbered scripts: [README.md](README.md) and [scripts/SCRIPTS.md](scripts/SCRIPTS.md).
+
+## Greenfield (spec)
+
+Put tokens in files (never in git). The example spec points at:
+
+| Spec key | Default path |
+|----------|----------------|
+| `auth.air_api_key_file` | `~/.config/dsx-air/air-api-key` |
+| `auth.ai_offlinetoken_file` | `~/.config/dsx-air/ai-offlinetoken` |
+| `auth.pull_secret_file` | `~/.config/dsx-air/pull-secret.json` |
+| `auth.ssh_public_key_file` | `~/.ssh/id_ed25519.pub` |
+
+CLI overrides: `--sim`, `--cluster`, `--control-plane`, `--workers`, `--ocp-version`.
+Host discovery waits `max(20, 8 × host count)` minutes (40m for 3+2); override with `--discovery-timeout` (minutes). Zero hosts for 20 minutes fails fast; if any host appears, the long wait continues. NTP / majority-connectivity `insufficient` is a warning on Air — wait for known/ready. As soon as a host hostname matches `ocp-cp-*` / `ocp-worker-*`, Assisted `master`/`worker` is set from the topology (not arrival order).
+
+```bash
+uv sync
+uv run dsx-air deploy --spec examples/ha-3cp-2w.yaml
+uv run dsx-air console --spec examples/ha-3cp-2w.yaml
+```
+
+`console` starts SOCKS through the jump host and launches host Chromium/Chrome.
+Chrome SOCKS5 resolves names **on the jump host**, so `start`/`console` write
+API/Console entries into jump-host `/etc/hosts` (not the laptop). `--print-only`
+prints commands without launching.
+
+Destroy (TTY prompt; `--force` for scripts):
+
+```bash
+uv run dsx-air destroy --spec examples/ha-3cp-2w.yaml
+uv run dsx-air destroy --spec examples/ha-3cp-2w.yaml --sim
+uv run dsx-air destroy --spec examples/ha-3cp-2w.yaml --cluster --force
+uv run dsx-air deploy --spec examples/ha-3cp-2w.yaml --replace
+```
+
+## Operate existing `ocp-cluster`
+
+Operate the shared **`ocp-cluster`** simulation. Do not run `deploy --replace`
+against this name unless you intend to wipe it.
 
 ## What this lab is
 
@@ -82,6 +124,10 @@ Ready.
 
 | Command | Mutates? | Purpose |
 |---------|----------|---------|
+| `deploy --spec` | Yes | Greenfield Assisted + Air install from YAML |
+| `destroy --spec` | Yes | Delete Air sim and/or Assisted cluster (TTY prompt) |
+| `recover --spec` | Yes | Rebuild disks to discovery ISO |
+| `console --spec` | Yes (local SSH/Chrome) | SOCKS + host Chrome to Web Console |
 | `start` | Yes | Start sim + jump host bootstrap |
 | `status` | No | Full readiness report + `NEXT:` |
 | `tunnel` | No | Print SSH `-L 127.0.0.1:6443:API_VIP:6443` command |
@@ -102,7 +148,7 @@ Ready.
 | Symptom | Fix |
 |---------|-----|
 | 403 on `upload_discovery_iso.py` | Wrong workflow — use this guide, not the README install path |
-| `tunnel` exits 1, asks for `AIR_API_KEY` | Export an Ami-org key; regenerate if roles were recently added |
+| `tunnel` exits 1 | Pass `--spec examples/ha-3cp-2w.yaml`. Key is `~/.config/dsx-air/air-api-key` (or `AIR_API_KEY`). The old "Set AIR_API_KEY" line also meant jump host not ready. |
 | API unreachable / connection refused | Start the tunnel in Terminal 2; confirm sim is ACTIVE |
 | `oc` not found | Install the OpenShift CLI |
 | Jump host not ready | `uv run dsx-air start` |
@@ -110,9 +156,10 @@ Ready.
 
 ## Sim protection
 
-`dsx-air` never deletes, re-imports, or replaces `ocp-cluster`. Off-lab recovery
-uses `09_recover_to_discovery.py` (see [SCRIPTS.md](scripts/SCRIPTS.md)), not
-the demo CLI.
+Operate-existing commands (`start`, `status`, `demo`, `tunnel`) never delete
+`ocp-cluster`. Greenfield wipe is explicit: `dsx-air destroy --spec` or
+`deploy --replace`. Off-lab recovery: `dsx-air recover` /
+`09_recover_to_discovery.py`.
 
 ## Alternative invocation
 

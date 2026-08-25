@@ -7,7 +7,9 @@ requires-python = ">=3.14"
 dependencies = [
     "aicli>=99.0.0",
     "nv-air-sdk>=1.6.1",
+    "pydantic>=2.0",
     "pyyaml>=6.0",
+    "typer>=0.27.1",
 ]
 
 [project.scripts]

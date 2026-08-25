@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 from dsx_air._bootstrap import ensure_scripts_path
@@ -23,8 +22,11 @@ class AirLookupError(Exception):
 
 def simulation_info(*, require_api_key: bool = True) -> dict[str, str]:
     """Return simulation id, name, and state from Air API."""
-    if require_api_key and not _has_air_api_key():
-        raise AirLookupError("Set AIR_API_KEY (required for Air simulation lookup).")
+    if require_api_key and not env_config.air_api_key_configured():
+        raise AirLookupError(
+            "No Air API key. Put it in ~/.config/dsx-air/air-api-key "
+            "or export AIR_API_KEY / AIR_API_KEY_FILE."
+        )
 
     try:
         api = get_api()
@@ -42,8 +44,11 @@ def simulation_info(*, require_api_key: bool = True) -> dict[str, str]:
 def jump_host_info(*, sim: Simulation | None = None) -> dict[str, str]:
     """Return jump host SSH target and readiness without mutating."""
     if sim is None:
-        if not _has_air_api_key():
-            raise AirLookupError("Set AIR_API_KEY (required for jump host lookup).")
+        if not env_config.air_api_key_configured():
+            raise AirLookupError(
+                "No Air API key. Put it in ~/.config/dsx-air/air-api-key "
+                "or export AIR_API_KEY / AIR_API_KEY_FILE."
+            )
         api = get_api()
         sim = air_common.get_simulation(api)
 
@@ -51,7 +56,7 @@ def jump_host_info(*, sim: Simulation | None = None) -> dict[str, str]:
     if sim.state != "ACTIVE":
         return {
             "ready": "no",
-            "reason": f"simulation state is {sim.state!r} (need ACTIVE)",
+            "reason": f"simulation {sim.name} state is {sim.state!r} (need ACTIVE)",
             "ssh": "",
             "host": "",
             "port": "",
@@ -124,10 +129,3 @@ def profile_info() -> dict[str, str]:
         "api_vip": env_config.api_vip(),
         "multinode": "yes" if env_config.is_multinode() else "no",
     }
-
-
-def _has_air_api_key() -> bool:
-    if os.environ.get("AIR_API_KEY", "").strip():
-        return True
-    file_path = os.environ.get("AIR_API_KEY_FILE", "").strip()
-    return bool(file_path)

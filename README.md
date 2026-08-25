@@ -5,9 +5,11 @@ discovery ISO on NVIDIA DSX / NVIDIA Air — no seed image, no Lifecycle
 Agent, no `MachineConfig` partition tricks, no `cdrom`-swap sequence. One
 Air node, one boot, one install.
 
-This fork supports **SNO** (`topology.json`) and an R&D **multinode profile**
-(`topology-multinode.json`: 3-node HA, 3 control-plane masters). See
-[Multinode profile](#multinode-profile-3-node-ha) below.
+This fork supports **SNO** (`topology.json`), a checked-in **3-node HA**
+profile (`topology-multinode.json`), and a **spec-driven** 3-control-plane +
+2-worker deploy via `dsx-air deploy --spec examples/ha-3cp-2w.yaml` (Air
+topology is generated into `.cache/`). See
+[Multinode profile](#multinode-profile-3-node-ha) and [DEMO.md](DEMO.md).
 
 ## Prerequisites
 
@@ -37,7 +39,8 @@ not hardcode secrets in the repo.
 | Assisted Installer offline token | `AI_OFFLINETOKEN` or `AI_OFFLINETOKEN_FILE` |
 | Pull secret | `PULL_SECRET_PATH` (path to JSON file) |
 | SSH public key | `SSH_PUBLIC_KEY_PATH` (default `~/.ssh/id_ed25519.pub` or `id_rsa.pub`) |
-| OpenShift version | `OCP_VERSION` (**required**, e.g. `4.19`) |
+| OpenShift version | `OCP_VERSION` (**required** unless set in a spec, e.g. `4.19`) |
+| Additional NTP | `ADDITIONAL_NTP_SOURCE` (default `0.rhel.pool.ntp.org,time.google.com`) |
 | Cluster name | `CLUSTER_NAME` (default `sno-cluster`, or `ocp-cluster` when `CLUSTER_PROFILE=multinode`) |
 | Cluster profile | `CLUSTER_PROFILE` (`sno` default, or `multinode`) |
 | Topology manifest | `TOPOLOGY_PATH` (default `topology.json` or `topology-multinode.json`) |
@@ -388,6 +391,43 @@ This only works directly from your laptop if you can route to
 - Or create an Air **Service** (HTTPS / port `6443` on the node's `eth0`)
   and point DNS / kubeconfig at that public FQDN.
 
+## Spec-driven deploy (3 CP + 2 workers)
+
+Preferred greenfield path. Put secrets in files, point at them from YAML
+(do not commit tokens):
+
+```yaml
+# examples/ha-3cp-2w.yaml
+simulation:
+  name: dsx-lab
+cluster:
+  name: ocp
+  version: "4.19"
+  control_plane: { count: 3, cpu: 16, memory_mb: 65536, disk_gb: 100 }
+  workers: { count: 2, cpu: 8, memory_mb: 32768, disk_gb: 100 }
+auth:
+  air_api_key_file: ~/.config/dsx-air/air-api-key
+  ai_offlinetoken_file: ~/.config/dsx-air/ai-offlinetoken
+  pull_secret_file: ~/.config/dsx-air/pull-secret.json
+  ssh_public_key_file: ~/.ssh/id_ed25519.pub
+```
+
+```bash
+mkdir -p ~/.config/dsx-air
+# write air-api-key, ai-offlinetoken, pull-secret.json
+
+uv run dsx-air deploy --spec examples/ha-3cp-2w.yaml
+uv run dsx-air console --spec examples/ha-3cp-2w.yaml
+```
+
+`deploy --replace` destroys the spec's Air simulation and Assisted cluster,
+then recreates. `destroy --sim` / `--cluster` scopes deletion; `--force`
+skips the TTY prompt. Console uses a SOCKS proxy and host Chrome;
+cluster names are written on the **jump host** `/etc/hosts` (SOCKS DNS),
+not the laptop.
+
+Numbered scripts `00`–`09` still work for debugging; see [scripts/SCRIPTS.md](scripts/SCRIPTS.md).
+
 ## Shared lab guide
 
 To operate the existing multinode lab (`ocp-cluster`) in Ami's org without
@@ -439,7 +479,7 @@ uv run upload_discovery_iso.py --name "$ISO_NAME"
 uv run upload_blank_disk.py
 uv run 01_create_simulation.py
 uv run 06_wait_for_host_ipv4.py --require-known --min-hosts 3
-uv run assign_host_roles.py          # optional; 07 also assigns roles
+# 06 pins master/worker from ocp-cp-* / ocp-worker-* names; 07 does the same before install
 uv run 07_install_cluster.py --configure-only   # gate before install
 uv run 07_install_cluster.py
 ```

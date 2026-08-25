@@ -23,6 +23,9 @@ DEFAULT_JUMP_HOST_PASSWORD = "redhat"
 DEFAULT_API_VIP = "192.168.200.10"
 DEFAULT_INGRESS_VIP = "192.168.200.11"
 OOB_IPV4_PREFIX = "192.168.200."
+DEFAULT_ADDITIONAL_NTP_SOURCE = "0.rhel.pool.ntp.org,time.google.com"
+DEFAULT_AIR_API_KEY_FILE = Path.home() / ".config" / "dsx-air" / "air-api-key"
+DEFAULT_AI_OFFLINETOKEN_FILE = Path.home() / ".config" / "dsx-air" / "ai-offlinetoken"
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -32,18 +35,39 @@ def _read_file(path: Path, *, what: str) -> str:
     return path.read_text().strip()
 
 
+def _default_secret_file(env_name: str) -> Path | None:
+    if env_name == "AIR_API_KEY":
+        return DEFAULT_AIR_API_KEY_FILE
+    if env_name == "AI_OFFLINETOKEN":
+        return DEFAULT_AI_OFFLINETOKEN_FILE
+    return None
+
+
 def resolve_secret(env_name: str, *, what: str) -> str:
-    """Resolve ENV or ENV_FILE into a non-empty secret string."""
+    """Resolve ENV, ENV_FILE, or ~/.config/dsx-air default file."""
     value = os.environ.get(env_name)
-    if value:
+    if value and value.strip():
         return value.strip()
     file_var = f"{env_name}_FILE"
     file_path = os.environ.get(file_var)
     if file_path:
         return _read_file(Path(file_path).expanduser(), what=what)
+    default = _default_secret_file(env_name)
+    if default is not None and default.is_file():
+        text = default.read_text().strip()
+        if text:
+            return text
     raise SystemExit(
-        f"No {what} set. Export {env_name}=... or {file_var}=/path/to/file."
+        f"No {what} set. Export {env_name}=..., {file_var}=/path/to/file, "
+        f"or put it in {default or file_var}."
     )
+
+
+def air_api_key_configured() -> bool:
+    try:
+        return bool(air_api_key())
+    except SystemExit:
+        return False
 
 
 def air_api_key() -> str:
@@ -124,6 +148,8 @@ def topology_path() -> Path:
 
 
 def simulation_name() -> str:
+    if raw := os.environ.get("SIMULATION_NAME", "").strip():
+        return raw
     return _load_topology_manifest().get("name") or cluster_name()
 
 
@@ -132,6 +158,23 @@ def expected_hosts() -> int:
     if raw:
         return int(raw)
     return len(topology_node_names()) or 1
+
+
+def discovery_timeout_seconds(host_count: int | None = None) -> int:
+    """Long wait for host discovery: max(20 min, 8 min per expected host).
+
+    Override with DISCOVERY_TIMEOUT (minutes) or 06 --timeout (seconds).
+    """
+    raw = os.environ.get("DISCOVERY_TIMEOUT", "").strip()
+    if raw:
+        return max(60, int(raw) * 60)
+    hosts = host_count if host_count is not None else expected_hosts()
+    return max(20 * 60, 8 * 60 * max(hosts, 1))
+
+
+def no_hosts_abort_seconds() -> int:
+    """Fail fast when Assisted still has zero hosts (stuck boot)."""
+    return 20 * 60
 
 
 def api_vip() -> str:
@@ -214,6 +257,13 @@ def base_dns_domain() -> str:
     return (
         os.environ.get("BASE_DNS_DOMAIN", DEFAULT_BASE_DNS_DOMAIN).strip()
         or DEFAULT_BASE_DNS_DOMAIN
+    )
+
+
+def additional_ntp_source() -> str:
+    return (
+        os.environ.get("ADDITIONAL_NTP_SOURCE", DEFAULT_ADDITIONAL_NTP_SOURCE).strip()
+        or DEFAULT_ADDITIONAL_NTP_SOURCE
     )
 
 

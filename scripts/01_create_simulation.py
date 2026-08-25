@@ -60,7 +60,7 @@ def main() -> None:
     )
     print(f"Simulation created: id={sim.id} name={sim.name!r} state={sim.state!r}")
 
-    wait_for_sim_state(sim, "ACTIVE", timeout=120)
+    wait_for_sim_state(sim, "ACTIVE", timeout=600)
 
     print("\nNodes in the simulation:")
     for node in sim.nodes.list():

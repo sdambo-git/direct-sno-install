@@ -22,22 +22,19 @@ from pathlib import Path
 from ailib import AssistedClient
 
 import env_config
+from assisted_common import ai_call, get_client
 
 
 def _get_client() -> AssistedClient:
-    return AssistedClient(
-        url=env_config.SAAS_AI_URL,
-        offlinetoken=env_config.ai_offlinetoken(),
-        quiet=True,
-    )
+    return get_client(quiet=True)
 
 
 def _cluster_exists(ai: AssistedClient, name: str) -> bool:
-    return any(c.get("name") == name for c in ai.list_clusters())
+    return any(c.get("name") == name for c in ai_call(ai, ai.list_clusters))
 
 
 def _infraenv_exists(ai: AssistedClient, name: str) -> bool:
-    return any(e.get("name") == name for e in ai.list_infra_envs())
+    return any(e.get("name") == name for e in ai_call(ai, ai.list_infra_envs))
 
 
 def _cluster_overrides(*, multinode: bool) -> dict:
@@ -49,6 +46,7 @@ def _cluster_overrides(*, multinode: bool) -> dict:
         "base_dns_domain": env_config.base_dns_domain(),
         "sno": not multinode,
         "infraenv": "false",
+        "additional_ntp_source": env_config.additional_ntp_source(),
     }
     if multinode:
         # Non-SNO HA: derive CP count from topology (do not set high_availability_mode None).
@@ -67,6 +65,7 @@ def _infraenv_overrides(cluster: str) -> dict:
         "pull_secret": str(env_config.pull_secret_path()),
         "ssh_public_key": env_config.ssh_public_key(),
         "image_type": "minimal-iso",
+        "additional_ntp_sources": env_config.additional_ntp_source(),
     }
 
 
@@ -79,27 +78,27 @@ def _ensure_cluster(ai: AssistedClient, name: str, *, force: bool, multinode: bo
         print(f"Deleting existing cluster {name!r} (--force) ...")
     kind = "multinode" if multinode else "SNO"
     print(f"Creating Assisted Installer {kind} cluster {name!r} ...")
-    ai.create_cluster(name, _cluster_overrides(multinode=multinode), force=force)
+    ai_call(ai, lambda: ai.create_cluster(name, _cluster_overrides(multinode=multinode), force=force))
 
 
 def _ensure_infraenv(ai: AssistedClient, cluster: str, infraenv: str, *, force: bool) -> None:
     exists = _infraenv_exists(ai, infraenv)
     if exists and force:
         print(f"Deleting existing infraenv {infraenv!r} (--force) ...")
-        ai.delete_infra_env(infraenv, force=True)
+        ai_call(ai, lambda: ai.delete_infra_env(infraenv, force=True))
         exists = False
     if exists:
         print(f"Reusing existing infraenv {infraenv!r}.")
         return
     print(f"Creating infraenv {infraenv!r} ...")
-    ai.create_infra_env(infraenv, _infraenv_overrides(cluster))
+    ai_call(ai, lambda: ai.create_infra_env(infraenv, _infraenv_overrides(cluster)))
 
 
 def _download_iso(ai: AssistedClient, infraenv: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     download_dir = dest.parent
     print(f"Downloading discovery ISO for {infraenv!r} into {download_dir} ...")
-    ai.download_iso(infraenv, str(download_dir))
+    ai_call(ai, lambda: ai.download_iso(infraenv, str(download_dir)))
     downloaded = download_dir / f"{infraenv}.iso"
     if not downloaded.is_file():
         raise SystemExit(f"Expected ISO missing after download: {downloaded}")

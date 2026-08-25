@@ -7,6 +7,7 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 
+from assisted_common import ai_call
 import env_config
 
 # Host or cluster statuses that usually need a human or recovery script.
@@ -70,8 +71,8 @@ REMEDIATION_HINTS: dict[str, str] = {
         f"discovery image."
     ),
     "insufficient": (
-        "Host validations are failing — read status_info (common: NTP). Wait briefly; "
-        "if it persists, check Assisted Installer host details."
+        "Host validations are failing (often NTP or majority-connectivity on Air). "
+        "Wait — NTP is not a fail-fast; discovery continues until known/ready or timeout."
     ),
 }
 
@@ -103,14 +104,8 @@ def host_stage(host: dict) -> tuple[str, str]:
 def get_cluster_dict(ai, cluster_name: str | None = None) -> dict:
     """Fetch cluster with token refresh on 401."""
     name = cluster_name or env_config.cluster_name()
-    cluster_id = ai.get_cluster_id(name)
-    try:
-        return ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict()
-    except Exception as exc:  # noqa: BLE001
-        if "401" in str(exc) and hasattr(ai, "refresh_token"):
-            ai.refresh_token(ai.token, ai.offlinetoken)
-            return ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict()
-        raise
+    cluster_id = ai_call(ai, lambda: ai.get_cluster_id(name))
+    return ai_call(ai, lambda: ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict())
 
 
 def analyze_hosts(cluster: dict, hosts: list[dict]) -> list[PollIssue]:
@@ -185,48 +180,57 @@ def probe_oob_ping(oob_ip: str) -> bool:
 
 
 def check_air_discovery_boot() -> list[PollIssue]:
-    """Warn when Air node is not configured to boot the discovery ISO."""
+    """Warn when Air OCP nodes are not configured to boot the discovery ISO."""
     if not os.environ.get("AIR_API_KEY") and not os.environ.get("AIR_API_KEY_FILE"):
         return []
     try:
-        from air_common import get_api, get_node, get_simulation
+        from air_common import get_api, get_simulation, get_topology_nodes
 
         sim = get_simulation(get_api())
-        node = get_node(sim)
-        boot = (node.advanced or {}).get("boot")
-        cdrom = node.cdrom
-        boot_list = boot if isinstance(boot, list) else [boot] if boot else []
-        if boot in ("hd", ["hd"]) and not cdrom:
-            return [
-                PollIssue(
-                    severity="action",
-                    code="no-bootable-device-risk",
-                    message=f"Air node boot={boot!r} with cdrom detached — "
-                    "will show 'No bootable device' if disk is blank",
-                    hint="Run uv run scripts/09_recover_to_discovery.py to rebuild "
-                    "blank disk and re-attach discovery ISO with boot ['hd', 'cdrom'].",
-                )
-            ]
-        if boot_list and boot_list[0] == "cdrom":
-            return [
-                PollIssue(
-                    severity="warn",
-                    code="wrong-discovery-boot",
-                    message=f"Air node boot={boot!r} cdrom={cdrom!r}",
-                    hint=REMEDIATION_HINTS["wrong_discovery_boot"],
-                )
-            ]
-        if not cdrom:
-            return [
-                PollIssue(
-                    severity="action",
-                    code="cdrom-missing",
-                    message=f"Discovery ISO not attached (boot={boot!r})",
-                    hint="Run uv run scripts/09_recover_to_discovery.py",
-                )
-            ]
+        issues: list[PollIssue] = []
+        for node in get_topology_nodes(sim):
+            issues.extend(_discovery_boot_issues_for_node(node))
+        return issues
     except Exception:  # noqa: BLE001
-        pass
+        return []
+
+
+def _discovery_boot_issues_for_node(node) -> list[PollIssue]:
+    boot = (node.advanced or {}).get("boot")
+    cdrom = node.cdrom
+    boot_list = boot if isinstance(boot, list) else [boot] if boot else []
+    label = node.name
+    if boot in ("hd", ["hd"]) and not cdrom:
+        return [
+            PollIssue(
+                severity="action",
+                code="no-bootable-device-risk",
+                message=(
+                    f"Air node {label} boot={boot!r} with cdrom detached — "
+                    "will show 'No bootable device' if disk is blank"
+                ),
+                hint="Run uv run scripts/09_recover_to_discovery.py to rebuild "
+                "blank disk and re-attach discovery ISO with boot ['hd', 'cdrom'].",
+            )
+        ]
+    if boot_list and boot_list[0] == "cdrom":
+        return [
+            PollIssue(
+                severity="warn",
+                code="wrong-discovery-boot",
+                message=f"Air node {label} boot={boot!r} cdrom={cdrom!r}",
+                hint=REMEDIATION_HINTS["wrong_discovery_boot"],
+            )
+        ]
+    if not cdrom:
+        return [
+            PollIssue(
+                severity="action",
+                code="cdrom-missing",
+                message=f"Discovery ISO not attached on {label} (boot={boot!r})",
+                hint="Run uv run scripts/09_recover_to_discovery.py",
+            )
+        ]
     return []
 
 
@@ -361,7 +365,10 @@ class PollTracker:
             )
         ]
 
-    def should_abort(self, max_action_streak: int = 3) -> tuple[bool, str]:
+    def should_abort(
+        self,
+        max_action_streak: int = 3,
+    ) -> tuple[bool, str]:
         for code, streak in self.action_streak.items():
             if streak >= max_action_streak:
                 return True, f"Repeated action-required state {code!r} ({streak} polls)"

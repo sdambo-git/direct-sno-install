@@ -10,8 +10,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from ailib import AssistedClient
-
+from assisted_common import ai_call, get_client
 import env_config
 
 
@@ -28,21 +27,17 @@ def main() -> None:
 
     name = env_config.cluster_name()
     infraenv = f"{name}_infra-env"
-    ai = AssistedClient(
-        url=env_config.SAAS_AI_URL,
-        offlinetoken=env_config.ai_offlinetoken(),
-        quiet=True,
-    )
+    ai = get_client(quiet=True)
 
-    if any(e.get("name") == infraenv for e in ai.list_infra_envs()):
+    if any(e.get("name") == infraenv for e in ai_call(ai, ai.list_infra_envs)):
         print(f"Deleting infraenv {infraenv!r} ...")
-        ai.delete_infra_env(infraenv, force=True)
+        ai_call(ai, lambda: ai.delete_infra_env(infraenv, force=True))
     else:
         print(f"No infraenv named {infraenv!r}.")
 
-    if any(c.get("name") == name for c in ai.list_clusters()):
+    if any(c.get("name") == name for c in ai_call(ai, ai.list_clusters)):
         print(f"Deleting cluster {name!r} ...")
-        ai.delete_cluster(name)
+        ai_call(ai, lambda: ai.delete_cluster(name))
     else:
         print(f"No cluster named {name!r}.")
 

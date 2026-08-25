@@ -14,16 +14,24 @@ Auth / inputs are resolved by `env_config.py` — see the README table for
 
 ## Demo CLI (`dsx-air`)
 
-For screen-sharing an **existing** multinode lab (`ocp-cluster`) — start sim,
-print tunnel command, run `oc` checks — without the full install flow:
+Greenfield (generates topology from a spec):
+
+```bash
+uv run dsx-air deploy --spec examples/ha-3cp-2w.yaml
+uv run dsx-air console --spec examples/ha-3cp-2w.yaml
+```
+
+Discovery wait defaults to `max(20, 8 × host count)` minutes (`--discovery-timeout` to override). `06_wait_for_host_ipv4.py` aborts after 20 minutes with zero hosts; once a host appears it uses the long timeout. NTP `insufficient` is warn-only (no fail-fast). Host roles are pinned from topology names (`ocp-cp-*` → master, `ocp-worker-*` → worker) during that wait.
+
+Operate an **existing** lab (`ocp-cluster`) without install:
 
 ```bash
 export CLUSTER_PROFILE=multinode
 uv run dsx-air demo
 ```
 
-Commands: `start`, `status`, `tunnel`, `cluster`, `operators`, `demo`.
-Package: `scripts/dsx_air/`. Full walkthrough: [../DEMO.md](../DEMO.md).
+Commands: `deploy`, `destroy`, `recover`, `console`, `start`, `status`, `tunnel`, `cluster`, `operators`, `demo`.
+Package: `scripts/dsx_air/`. Walkthrough: [../DEMO.md](../DEMO.md).
 
 ## Normal install flow — SNO (in order)
 
@@ -60,7 +68,7 @@ Uses `topology-multinode.json` and `CLUSTER_NAME=ocp-cluster` by default.
 | Script | What it does |
 |---|---|
 | `delete_assisted_cluster.py` | Deletes the SaaS cluster + infraenv (`--yes` required). Companion to `00_create_discovery_iso.py --force`. |
-| `assign_host_roles.py` | Maps topology node names to AI `master`/`worker` roles (multinode). |
+| `assign_host_roles.py` | Same topology mapping as `06` (`ocp-cp-*` master, `ocp-worker-*` worker). Requires all OCP nodes present. |
 
 ## Recovery / re-run helpers
 

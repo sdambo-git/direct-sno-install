@@ -8,5 +8,13 @@ __pycache__/
 # Contains a real quay.io credential (base64-wrapped plaintext auth) — never commit.
 scripts/seedgen.yaml
 
+# Local credential overlays — never commit.
+*.local.yaml
+*.local.toml
+*.local.json
+
 # Contains a password hash for the 'core' user — excluded out of caution.
 scripts/set-core-user-password-machineconfig.yaml
+
+# Agent
+.cursor/
