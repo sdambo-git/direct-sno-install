@@ -31,6 +31,7 @@ from assisted_poll import (
     get_cluster_dict,
     host_stage,
     print_action_block,
+    refresh_ai_token,
     suggest_poll_interval,
 )
 import env_config
@@ -217,13 +218,14 @@ def _wait_installed(
         if host_summary:
             print(f"  {'; '.join(host_summary)}")
 
-        if completed or status == "installed":
-            print("Cluster install completed.")
-            return
+        # AI sets install_completed_at on failure too — treat error first.
         if status in {"error", "cancelled"}:
             raise SystemExit(
                 f"Cluster entered state {status!r}.\n{format_issues(issues)}"
             )
+        if completed or status == "installed":
+            print("Cluster install completed.")
+            return
 
         abort, reason = tracker.should_abort(max_action_streak=abort_after)
         if abort:
@@ -244,7 +246,7 @@ def _wait_installed(
 
 def _download_credentials(ai, name: str, dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
-    ai.refresh_token()
+    refresh_ai_token(ai)
     ai.download_kubeconfig(name, str(dest))
     ai.download_kubeadminpassword(name, str(dest))
     print(f"Downloaded kubeconfig and kubeadmin password into {dest}")

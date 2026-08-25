@@ -73,6 +73,14 @@ REMEDIATION_HINTS: dict[str, str] = {
         "Host validations are failing — read status_info (common: NTP). Wait briefly; "
         "if it persists, check Assisted Installer host details."
     ),
+    "install-connect-timeout": (
+        "HA bootstrap could not SSH to a master after image write. The bootstrap "
+        "node stays at 'Starting installation' / bootstrap while the others should "
+        "leave 'Writing image to disk 100%' and Reboot onto the installed disk. "
+        "Check those nodes' Air consoles. Recover with "
+        "uv run 09_recover_to_discovery.py --node <name> --reset-ai (all three "
+        "if needed), then re-run from host discovery."
+    ),
 }
 
 
@@ -100,6 +108,11 @@ def host_stage(host: dict) -> tuple[str, str]:
     return str(progress.get("current_stage") or ""), str(progress.get("progress_info") or "")
 
 
+def refresh_ai_token(ai) -> None:
+    """Refresh the Assisted Installer SaaS token (ailib requires both args)."""
+    ai.refresh_token(ai.token, ai.offlinetoken)
+
+
 def get_cluster_dict(ai, cluster_name: str | None = None) -> dict:
     """Fetch cluster with token refresh on 401."""
     name = cluster_name or env_config.cluster_name()
@@ -108,7 +121,7 @@ def get_cluster_dict(ai, cluster_name: str | None = None) -> dict:
         return ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict()
     except Exception as exc:  # noqa: BLE001
         if "401" in str(exc) and hasattr(ai, "refresh_token"):
-            ai.refresh_token(ai.token, ai.offlinetoken)
+            refresh_ai_token(ai)
             return ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict()
         raise
 
@@ -131,12 +144,15 @@ def analyze_hosts(cluster: dict, hosts: list[dict]) -> list[PollIssue]:
         hostname = host.get("requested_hostname") or host.get("id")
         info = host.get("status_info") or ""
         if h_status in ACTION_HOST_STATUSES:
+            hint = REMEDIATION_HINTS.get(h_status, "")
+            if "timeout while connecting to host" in info.lower():
+                hint = REMEDIATION_HINTS["install-connect-timeout"]
             issues.append(
                 PollIssue(
                     severity="action",
                     code=f"host-{h_status}",
                     message=f"Host {hostname!r} status {h_status!r}: {info}",
-                    hint=REMEDIATION_HINTS.get(h_status, ""),
+                    hint=hint,
                 )
             )
         elif h_status == "insufficient" and info:
