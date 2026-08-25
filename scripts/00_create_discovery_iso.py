@@ -145,5 +145,5 @@ if __name__ == "__main__":
     except SystemExit:
         raise
     except Exception as exc:  # noqa: BLE001 — surface ailib/sys.exit noise cleanly
-        print(f"error: {exc}", file=sys.stderr)
+        print(f"error: {env_config.describe_error(exc)}", file=sys.stderr)
         raise SystemExit(1) from exc

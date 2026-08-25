@@ -20,7 +20,10 @@ Run:
 """
 from __future__ import annotations
 
+import sys
+
 from air_common import ensure_jump_host_ready, get_api, get_simulation, jump_host_ssh_command
+import env_config
 
 
 def main() -> None:
@@ -43,4 +46,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: {env_config.describe_error(exc)}", file=sys.stderr)
+        raise SystemExit(1) from exc

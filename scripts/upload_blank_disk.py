@@ -6,14 +6,20 @@ pattern).
 
 Requires AIR_API_KEY (or AIR_API_KEY_FILE) and `qemu-img` on PATH.
 
+There is no --replace: `blank-100g` is a content-free empty disk template,
+its content never needs to change, and Air rejects clearing/overwriting an
+image's content once it's attached to a node ("This image is currently
+associated with nodes."). If you already have a `blank-100g` image, this
+script is a no-op.
+
     uv run upload_blank_disk.py
-    uv run upload_blank_disk.py --replace
 """
 from __future__ import annotations
 
 import argparse
 import os
 import subprocess
+import sys
 
 from air_sdk import AirApi
 from air_sdk.utils import wait_for_state
@@ -50,39 +56,22 @@ def _ensure_blank_qcow2(path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--replace",
-        action="store_true",
-        help="Replace the file content of an existing Air image with the same name.",
-    )
-    args = parser.parse_args()
+    parser.parse_args()
 
     qcow2_path = env_config.blank_qcow2_path()
     _ensure_blank_qcow2(qcow2_path)
 
     api = get_api()
     existing = _find_image(api)
-    if existing is not None and not args.replace:
+    if existing is not None:
         print(
             f"Air image {IMAGE_NAME!r} already exists (id={existing.id}, "
-            f"upload_status={existing.upload_status!r}). Skipping upload. "
-            "Pass --replace to overwrite its content."
+            f"upload_status={existing.upload_status!r}). Skipping upload "
+            "(blank-100g's content never needs to change)."
         )
         return
 
     size_gb = os.path.getsize(qcow2_path) / (1024**3)
-    if existing is not None and args.replace:
-        print(
-            f"Replacing content of existing Air image {IMAGE_NAME!r} "
-            f"(id={existing.id}) with {qcow2_path} ({size_gb:.3f} GB on disk) ..."
-        )
-        existing.clear_upload()
-        existing.refresh()
-        existing.upload(filepath=str(qcow2_path))
-        wait_for_state(existing, "COMPLETE", state_field="upload_status", error_states="READY")
-        print(f"Replace complete: image id={existing.id}, name={existing.name!r}")
-        return
-
     print(
         f"Uploading {qcow2_path} ({size_gb:.3f} GB on disk) as Air image "
         f"{IMAGE_NAME!r} ..."
@@ -103,4 +92,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: {env_config.describe_error(exc)}", file=sys.stderr)
+        raise SystemExit(1) from exc

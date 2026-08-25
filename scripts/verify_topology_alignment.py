@@ -6,6 +6,8 @@ Makes no changes.
 """
 from __future__ import annotations
 
+import sys
+
 from upload_discovery_iso import get_api
 import env_config
 
@@ -47,4 +49,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: {env_config.describe_error(exc)}", file=sys.stderr)
+        raise SystemExit(1) from exc

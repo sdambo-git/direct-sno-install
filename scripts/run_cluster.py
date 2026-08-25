@@ -106,15 +106,16 @@ def _update_topology_cdrom(iso_name: str) -> list[str]:
 # --- Steps -------------------------------------------------------------
 
 
-def step_delete_ai(ctx: Ctx) -> None:
+def step_delete_ai(ctx: Ctx) -> bool:
     print("Deletes the Assisted Installer SaaS cluster + infraenv (not Air resources).")
     if not _confirm("Proceed with delete_assisted_cluster.py --yes?", ctx=ctx, default=False):
         print("Skipped.")
-        return
+        return False
     _run("delete_assisted_cluster.py", "--yes", ctx=ctx)
+    return True
 
 
-def step_create_iso(ctx: Ctx) -> None:
+def step_create_iso(ctx: Ctx) -> bool:
     force = _confirm(
         "Force recreate the Assisted Installer cluster/infraenv (--force)?",
         ctx=ctx,
@@ -125,14 +126,16 @@ def step_create_iso(ctx: Ctx) -> None:
     if force:
         args.append("--force")
     _run(*args, ctx=ctx)
+    return True
 
 
-def step_upload_iso(ctx: Ctx) -> None:
+def step_upload_iso(ctx: Ctx) -> bool:
     if env_config.is_multinode():
         default_name = f"dsxair-discovery-{int(time.time())}"
         print(
-            "Multinode profile: README recommends a FRESH image name per ISO "
-            "rebuild rather than --replace (Air can serve a stale CDROM cache)."
+            "Multinode profile: use a FRESH image name per ISO rebuild — Air "
+            "won't let you overwrite an image already in use by nodes, and can "
+            "serve a stale CDROM cache even when it's not."
         )
         iso_name = _prompt(
             f"Air image name to upload as [{default_name}]: ", ctx=ctx, default=default_name
@@ -141,72 +144,69 @@ def step_upload_iso(ctx: Ctx) -> None:
         _run("upload_discovery_iso.py", "--name", iso_name, ctx=ctx)
         if ctx.dry_run:
             print(f"(dry-run: would update topology cdrom fields to {iso_name!r})")
-            return
+            return True
         changed = _update_topology_cdrom(iso_name)
         if changed:
             print(f"Updated cdrom -> {iso_name!r} for nodes {changed} in {env_config.topology_path()}")
         else:
             print("Topology cdrom fields already up to date.")
     else:
-        replace = _confirm(
-            "Image may already exist from a previous run — replace its content (--replace)?",
-            ctx=ctx,
-            default=False,
-        )
-        args = ["upload_discovery_iso.py"]
-        if replace:
-            args.append("--replace")
-        _run(*args, ctx=ctx)
+        _run("upload_discovery_iso.py", ctx=ctx)
+    return True
 
 
-def step_upload_blank(ctx: Ctx) -> None:
-    replace = _confirm("Replace existing blank-100g content (--replace)?", ctx=ctx, default=False)
-    args = ["upload_blank_disk.py"]
-    if replace:
-        args.append("--replace")
-    _run(*args, ctx=ctx)
+def step_upload_blank(ctx: Ctx) -> bool:
+    _run("upload_blank_disk.py", ctx=ctx)
+    return True
 
 
-def step_verify_alignment(ctx: Ctx) -> None:
+def step_verify_alignment(ctx: Ctx) -> bool:
     _run("verify_topology_alignment.py", ctx=ctx)
+    return True
 
 
-def step_create_simulation(ctx: Ctx) -> None:
+def step_create_simulation(ctx: Ctx) -> bool:
     _run("01_create_simulation.py", ctx=ctx)
+    return True
 
 
-def step_wait_hosts(ctx: Ctx) -> None:
+def step_wait_hosts(ctx: Ctx) -> bool:
     min_hosts = env_config.expected_hosts()
     args = ["06_wait_for_host_ipv4.py", "--min-hosts", str(min_hosts)]
     if _confirm("Require hosts to be known/ready (--require-known)?", ctx=ctx, default=True):
         args.append("--require-known")
     _run(*args, ctx=ctx)
+    return True
 
 
-def step_assign_roles(ctx: Ctx) -> None:
+def step_assign_roles(ctx: Ctx) -> bool:
     if not env_config.is_multinode():
         print("SNO profile: role assignment is a no-op, skipping.")
-        return
+        return False
     _run("assign_host_roles.py", ctx=ctx)
+    return True
 
 
-def step_configure_only(ctx: Ctx) -> None:
+def step_configure_only(ctx: Ctx) -> bool:
     _run("07_install_cluster.py", "--configure-only", ctx=ctx)
+    return True
 
 
-def step_install(ctx: Ctx) -> None:
+def step_install(ctx: Ctx) -> bool:
     if not _confirm(
         "This starts the real OpenShift install and can take a long time. Continue?",
         ctx=ctx,
         default=True,
     ):
         print("Skipped.")
-        return
+        return False
     _run("07_install_cluster.py", ctx=ctx)
+    return True
 
 
-def step_verify_cluster(ctx: Ctx) -> None:
+def step_verify_cluster(ctx: Ctx) -> bool:
     _run("08_verify_cluster.py", ctx=ctx)
+    return True
 
 
 def action_recover_node(ctx: Ctx, node: str | None = None) -> None:
@@ -227,7 +227,7 @@ def action_jump_host(ctx: Ctx) -> None:
 class Step:
     num: int
     title: str
-    fn: Callable[[Ctx], None]
+    fn: Callable[[Ctx], bool]  # returns True if it actually ran, False if skipped
 
 
 STEPS: list[Step] = [
@@ -275,6 +275,7 @@ def _print_menu(status: dict[int, str]) -> None:
         print(f" {step.num:>2}  [{mark}]  {step.title}")
     print("  r        Recover a node back to discovery (ad hoc)")
     print("  j        Print jump-host SSH command (ad hoc)")
+    print("\n([x]=ran  [-]=skipped/declined  [!]=failed)")
     print()
 
 
@@ -283,8 +284,8 @@ def run_steps(nums: list[int], ctx: Ctx, status: dict[int, str]) -> None:
         step = STEPS_BY_NUM[n]
         print(f"\n----- Step {n}: {step.title} -----")
         try:
-            step.fn(ctx)
-            status[n] = "x"
+            ran = step.fn(ctx)
+            status[n] = "x" if ran else "-"
         except StepFailed as exc:
             status[n] = "!"
             print(f"\nStep {n} FAILED: {exc}")

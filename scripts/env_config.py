@@ -26,6 +26,30 @@ OOB_IPV4_PREFIX = "192.168.200."
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+def describe_error(exc: BaseException) -> str:
+    """Best-effort human-readable message for a caught exception.
+
+    Air/Assisted-Installer SDK errors often stringify to something like
+    'Received an unexpected response from the Air API (400): {"detail":
+    "...", "validation_errors": {...}}'. Pull the useful text out of that
+    JSON tail instead of dumping the raw blob (or a full traceback).
+    """
+    message = str(exc)
+    try:
+        payload = json.loads(message[message.index("{"):])
+    except (ValueError, LookupError):
+        return message
+    if not isinstance(payload, dict):
+        return message
+    parts = [str(payload["detail"])] if payload.get("detail") else []
+    for issues in (payload.get("validation_errors") or {}).values():
+        for issue in issues if isinstance(issues, list) else []:
+            text = issue.get("message") if isinstance(issue, dict) else str(issue)
+            if text:
+                parts.append(str(text))
+    return " ".join(parts) if parts else message
+
+
 def _read_file(path: Path, *, what: str) -> str:
     if not path.is_file():
         raise SystemExit(f"{what} file not found: {path}")

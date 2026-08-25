@@ -29,16 +29,17 @@ uv run run_cluster.py --recover ocp-cp-1   # ad hoc node recovery
 It shells out to the exact scripts listed below (nothing new happening under
 the hood), tracks per-step pass/fail for the session, generates a fresh
 timestamped discovery-ISO name and rewrites the topology `cdrom` fields for
-you on the multinode profile (see the README caveat about `--replace`), and
-every prompt has a safe default so `--yes` is CI-friendly.
+you on the multinode profile (see the README note on fresh ISO names — there
+is no `--replace`), and every prompt has a safe default so `--yes` is
+CI-friendly.
 
 ## Normal install flow — SNO (in order)
 
 | # | Script | Run when | What it does |
 |---|---|---|---|
 | 0 | `00_create_discovery_iso.py` | Once (or after `--force`) | Creates Assisted Installer SaaS SNO cluster + infraenv via `ailib`, downloads the discovery ISO locally. Idempotent reuse; `--force` recreates. |
-| — | `upload_discovery_iso.py` | After step 0 | Uploads the local ISO to Air (name must match topology `cdrom`). Skips if present unless `--replace`. |
-| — | `upload_blank_disk.py` | Before first import | Creates sparse local 100G qcow2 (if needed) and uploads Air image `blank-100g`. Skips if present unless `--replace`. |
+| — | `upload_discovery_iso.py` | After step 0 | Uploads the local ISO to Air (name must match topology `cdrom`). Skips if present; no `--replace` — use `--name` for fresh content. |
+| — | `upload_blank_disk.py` | Before first import | Creates sparse local 100G qcow2 (if needed) and uploads Air image `blank-100g`. Skips if present (content never needs to change). |
 | 1 | `01_create_simulation.py` | After both Air images exist | Imports topology manifest (`topology.json` by default) and starts the simulation. Sets up jump-host SSH and clears the first-login password. |
 | 6 | `06_wait_for_host_ipv4.py` | After the node boots discovery | Polls Assisted Installer until host(s) show OOB IPv4 `192.168.200.x`. Does not start install. |
 | 7 | `07_install_cluster.py` | After wait succeeds | Configures networking/VIPs, starts install, downloads kubeconfig. |

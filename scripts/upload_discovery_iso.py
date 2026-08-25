@@ -7,13 +7,18 @@ importing the topology.
 Requires AIR_API_KEY (or AIR_API_KEY_FILE) and a local ISO via
 DISCOVERY_ISO_PATH / ISO_PATH (default: ../.cache/dsxair-discovery.iso).
 
+There is no --replace: Air rejects clearing/overwriting an image's content
+once it's attached to a node ("This image is currently associated with
+nodes."), and even when unattached it can serve a stale CDROM cache. Upload
+under a new --name instead and repoint topology `cdrom` fields at it.
+
     uv run upload_discovery_iso.py
-    uv run upload_discovery_iso.py --replace
     uv run upload_discovery_iso.py --name dsxair-discovery-iso-current
 """
 from __future__ import annotations
 
 import argparse
+import sys
 
 from air_sdk import AirApi
 from air_sdk.utils import wait_for_state
@@ -37,11 +42,6 @@ def _find_image(api: AirApi, name: str):
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--replace",
-        action="store_true",
-        help="Replace the file content of an existing Air image with the same name.",
-    )
-    parser.add_argument(
         "--name",
         help="Air image name (default: dsxair-discovery-iso from env_config). "
         "Use a new name to bust Air CDROM cache after infraenv changes.",
@@ -53,21 +53,15 @@ def main() -> None:
     api = get_api()
     existing = _find_image(api, image_name)
 
-    if existing is not None and not args.replace:
+    if existing is not None:
         print(
             f"Air image {image_name!r} already exists (id={existing.id}, "
             f"upload_status={existing.upload_status!r}). Skipping upload. "
-            "Pass --replace to overwrite its content."
+            "Pass --name <new-name> to upload fresh content under a new image "
+            "(Air won't let you clear/overwrite content on an image already "
+            "attached to nodes, and doing so unattached can still serve a "
+            "stale CDROM cache)."
         )
-        return
-
-    if existing is not None and args.replace:
-        print(f"Replacing content of existing Air image {image_name!r} (id={existing.id}) ...")
-        existing.clear_upload()
-        existing.refresh()
-        existing.upload(filepath=str(iso_path))
-        wait_for_state(existing, "COMPLETE", state_field="upload_status", error_states="READY")
-        print(f"Replace complete: image id={existing.id}, name={existing.name!r}")
         return
 
     print(f"Uploading {iso_path} as Air image {image_name!r} ...")
@@ -88,4 +82,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: {env_config.describe_error(exc)}", file=sys.stderr)
+        raise SystemExit(1) from exc

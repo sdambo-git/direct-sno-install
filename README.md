@@ -314,8 +314,11 @@ uv run upload_discovery_iso.py
 ```
 
 Uploads as Air image `dsxair-discovery-iso` (must match `topology.json`
-`"cdrom"`). Skips if the image already exists; pass `--replace` to overwrite
-content.
+`"cdrom"`). Skips if the image already exists. There is no `--replace`: Air
+rejects clearing/overwriting content on an image already attached to nodes,
+and can serve a stale CDROM cache even when it's not. If you need fresh
+content, upload under a new `--name` and update `topology.json`'s `"cdrom"`
+field to match.
 
 ## Step 3 — Create and upload `blank-100g`
 
@@ -324,8 +327,8 @@ uv run upload_blank_disk.py
 ```
 
 Creates a sparse local 100G qcow2 (if needed) and uploads it as Air image
-`blank-100g` (must match `topology.json` `"os"`). Skips if present unless
-`--replace`.
+`blank-100g` (must match `topology.json` `"os"`). Skips if present — its
+content never needs to change.
 
 ## Step 4 — Import the topology and boot the node
 
@@ -476,8 +479,9 @@ Default VIPs: `API_VIP=192.168.200.10`, `INGRESS_VIP=192.168.200.11`.
 Override if they conflict with DHCP leases.
 
 **Fresh ISO name:** After `00 --force`, upload under a **new** Air image name
-and update every node's `cdrom` in `topology-multinode.json`. Do not rely on
-`--replace` on the same image name — Air may serve a stale CDROM cache.
+and update every node's `cdrom` in `topology-multinode.json`. There is no
+`--replace` — Air rejects overwriting content on an image already in use by
+nodes and may serve a stale CDROM cache even when it's not in use.
 
 ### Phased validation
 
