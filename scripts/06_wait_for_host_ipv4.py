@@ -15,7 +15,14 @@ import argparse
 import sys
 import time
 
-from assisted_common import all_hosts_oob_ready, cluster_hosts, get_client, host_oob_ipv4s
+from assisted_common import (
+    all_hosts_oob_ready,
+    cluster_hosts,
+    ensure_additional_ntp,
+    get_client,
+    host_oob_ipv4s,
+    refresh_ai_token,
+)
 from assisted_poll import (
     PollSnapshot,
     PollTracker,
@@ -73,6 +80,7 @@ def main() -> None:
     tracker = PollTracker()
     last_summary = "no hosts yet"
     poll_num = 0
+    ntp_patched = False
 
     print(
         f"Waiting up to {args.timeout}s for {min_hosts} host(s) on cluster {name!r} "
@@ -81,9 +89,23 @@ def main() -> None:
 
     while True:
         poll_num += 1
-        cluster = get_cluster_dict(ai, name)
-        hosts = cluster_hosts(ai, name)
+        try:
+            cluster = get_cluster_dict(ai, name)
+            hosts = cluster_hosts(ai, name)
+        except Exception as exc:  # noqa: BLE001
+            text = str(exc)
+            if "401" in text or "token is invalid" in text.lower():
+                print(f"  [{poll_num}] AI token expired; refreshing ...")
+                refresh_ai_token(ai)
+                continue
+            raise
         issues = analyze_hosts(cluster, hosts) + check_air_discovery_boot()
+        if any("ntp" in (i.message + i.code).lower() for i in issues) and not ntp_patched:
+            ntp_patched = True
+            try:
+                ensure_additional_ntp(ai, name)
+            except Exception as exc:  # noqa: BLE001
+                print(f"  could not set additional_ntp_source: {env_config.describe_error(exc)}")
         streak = tracker.record_issues([i for i in issues if i.severity == "action"])
         if issues:
             print_action_block(issues, consecutive=max(streak, 1))
@@ -110,9 +132,10 @@ def main() -> None:
             )
         else:
             ready, ready_hosts = all_hosts_oob_ready(
-                ai, min_hosts=min_hosts, require_known=args.require_known
+                ai, min_hosts=min_hosts, require_known=args.require_known, hosts=hosts
             )
             last_summary = _summarize_hosts(hosts)
+            cluster_status = cluster.get("status") or ""
             if ready:
                 print(f"Host discovery succeeded for {len(ready_hosts)} host(s):")
                 for host in ready_hosts:
@@ -128,7 +151,10 @@ def main() -> None:
                     )
                 print("Next: uv run scripts/07_install_cluster.py when all hosts are known/ready.")
                 return
-            print(f"  [{poll_num}] still waiting ({last_summary})")
+            print(
+                f"  [{poll_num}] still waiting "
+                f"(cluster={cluster_status!r} hosts={len(hosts)}; {last_summary})"
+            )
 
         abort, reason = tracker.should_abort(
             max_action_streak=12 if any(

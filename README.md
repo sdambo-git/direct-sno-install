@@ -46,6 +46,7 @@ not hardcode secrets in the repo.
 | Control plane nodes | `CONTROL_PLANE_NODES` (comma-separated override) |
 | API VIP (multinode) | `API_VIP` (default `192.168.200.10`) |
 | Ingress VIP (multinode) | `INGRESS_VIP` (default `192.168.200.11`) |
+| Additional NTP sources | `ADDITIONAL_NTP_SOURCE` (default `192.168.200.1,time.google.com`) |
 | Control plane node | `CONTROL_PLANE_NODE` (default: first `*cp*` name in topology) |
 | Base DNS domain | `BASE_DNS_DOMAIN` (default `dsx.air.local`) |
 | Local discovery ISO path | `DISCOVERY_ISO_PATH` / `ISO_PATH` (default `.cache/dsxair-discovery.iso`) |

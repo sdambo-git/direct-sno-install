@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass, field
 
 import env_config
+from assisted_common import get_cluster_dict, refresh_ai_token
 
 # Host or cluster statuses that usually need a human or recovery script.
 ACTION_HOST_STATUSES = frozenset(
@@ -70,8 +71,10 @@ REMEDIATION_HINTS: dict[str, str] = {
         f"discovery image."
     ),
     "insufficient": (
-        "Host validations are failing — read status_info (common: NTP). Wait briefly; "
-        "if it persists, check Assisted Installer host details."
+        "Host validations are failing — common on Air is NTP. Step 7 now sets "
+        "additional_ntp_source (192.168.200.1,time.google.com) if missing. "
+        "Wait for the host to re-validate; if it persists, check oob-mgmt-server "
+        "can reach those NTP servers."
     ),
     "install-connect-timeout": (
         "HA bootstrap could not SSH to a master after image write. The bootstrap "
@@ -108,24 +111,6 @@ def host_stage(host: dict) -> tuple[str, str]:
     return str(progress.get("current_stage") or ""), str(progress.get("progress_info") or "")
 
 
-def refresh_ai_token(ai) -> None:
-    """Refresh the Assisted Installer SaaS token (ailib requires both args)."""
-    ai.refresh_token(ai.token, ai.offlinetoken)
-
-
-def get_cluster_dict(ai, cluster_name: str | None = None) -> dict:
-    """Fetch cluster with token refresh on 401."""
-    name = cluster_name or env_config.cluster_name()
-    cluster_id = ai.get_cluster_id(name)
-    try:
-        return ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict()
-    except Exception as exc:  # noqa: BLE001
-        if "401" in str(exc) and hasattr(ai, "refresh_token"):
-            refresh_ai_token(ai)
-            return ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict()
-        raise
-
-
 def analyze_hosts(cluster: dict, hosts: list[dict]) -> list[PollIssue]:
     issues: list[PollIssue] = []
     c_status = cluster.get("status") or ""
@@ -153,6 +138,15 @@ def analyze_hosts(cluster: dict, hosts: list[dict]) -> list[PollIssue]:
                     code=f"host-{h_status}",
                     message=f"Host {hostname!r} status {h_status!r}: {info}",
                     hint=hint,
+                )
+            )
+        elif "ntp" in info.lower():
+            issues.append(
+                PollIssue(
+                    severity="warn",
+                    code="host-ntp",
+                    message=f"Host {hostname!r} NTP: {info}",
+                    hint=REMEDIATION_HINTS["insufficient"],
                 )
             )
         elif h_status == "insufficient" and info:

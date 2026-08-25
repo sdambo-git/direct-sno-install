@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
+from typing import TypeVar
 
 from ailib import AssistedClient
 
 import env_config
+
+T = TypeVar("T")
+
+# Hosts in these statuses have checked in; HA stays in pending-for-input until
+# VIPs are set (step 9). insufficient is NTP/validation — not installable yet.
+INSTALLABLE_HOST_STATUSES = frozenset({"known", "ready", "pending-for-input"})
 
 
 def get_client(*, quiet: bool = True) -> AssistedClient:
@@ -15,6 +23,64 @@ def get_client(*, quiet: bool = True) -> AssistedClient:
         offlinetoken=env_config.ai_offlinetoken(),
         quiet=quiet,
     )
+
+
+def refresh_ai_token(ai: AssistedClient) -> None:
+    """Refresh the Assisted Installer SaaS token (ailib requires both args)."""
+    ai.refresh_token(ai.token, ai.offlinetoken)
+
+
+def ai_retry(ai: AssistedClient, fn: Callable[[], T]) -> T:
+    """Run an AI API call, refreshing the token once on 401."""
+    try:
+        return fn()
+    except Exception as exc:  # noqa: BLE001
+        text = str(exc)
+        if "401" not in text and "token is invalid" not in text.lower():
+            raise
+        refresh_ai_token(ai)
+        return fn()
+
+
+def get_cluster_dict(ai: AssistedClient, cluster_name: str | None = None) -> dict:
+    """Fetch cluster (including hosts) with token refresh on 401."""
+    name = cluster_name or env_config.cluster_name()
+
+    def _fetch() -> dict:
+        cluster_id = ai.get_cluster_id(name)
+        return ai.client.v2_get_cluster(cluster_id=cluster_id).to_dict()
+
+    return ai_retry(ai, _fetch)
+
+
+def _as_host_dict(host) -> dict:
+    if isinstance(host, dict):
+        return host
+    if hasattr(host, "to_dict"):
+        return host.to_dict()
+    return {"id": str(getattr(host, "id", host))}
+
+
+def cluster_hosts(ai: AssistedClient, cluster_name: str | None = None) -> list[dict]:
+    """Hosts bound to this cluster.
+
+    Prefer the cluster payload (what the AI UI shows). Fall back to listing
+    infraenv hosts and comparing cluster_id as strings — UUID vs str mismatches
+    used to make this look like 'no hosts yet' while the UI showed three.
+    """
+    cluster = get_cluster_dict(ai, cluster_name)
+    raw = cluster.get("hosts") or []
+    if raw:
+        return [_as_host_dict(h) for h in raw]
+
+    cid = str(cluster.get("id") or "")
+    listed = ai_retry(ai, ai.list_hosts)
+    matched: list[dict] = []
+    for host in listed:
+        hd = _as_host_dict(host)
+        if str(hd.get("cluster_id") or "") == cid:
+            matched.append(hd)
+    return matched
 
 
 def host_oob_ipv4s(host: dict) -> list[str]:
@@ -32,12 +98,6 @@ def host_oob_ipv4s(host: dict) -> list[str]:
             if ip.startswith(env_config.OOB_IPV4_PREFIX):
                 found.append(ip)
     return found
-
-
-def cluster_hosts(ai: AssistedClient, cluster_name: str | None = None) -> list[dict]:
-    name = cluster_name or env_config.cluster_name()
-    cluster_id = ai.get_cluster_id(name)
-    return [h for h in ai.list_hosts() if h.get("cluster_id") == cluster_id]
 
 
 def primary_oob_ipv4(ai: AssistedClient, cluster_name: str | None = None) -> str:
@@ -94,17 +154,36 @@ def all_hosts_oob_ready(
     *,
     min_hosts: int | None = None,
     require_known: bool = False,
+    hosts: list[dict] | None = None,
 ) -> tuple[bool, list[dict]]:
-    """Return (ready, hosts) when min_hosts have OOB IPs (and optionally known/ready)."""
+    """Return (ready, hosts) when min_hosts have OOB IPs (and optionally known/ready).
+
+    ``pending-for-input`` counts when require_known is set — HA hosts sit there
+    until API/Ingress VIPs are applied in 07_install_cluster.py --configure-only.
+    """
     required = min_hosts if min_hosts is not None else env_config.expected_hosts()
-    hosts = cluster_hosts(ai)
+    if hosts is None:
+        hosts = cluster_hosts(ai)
     ready_hosts: list[dict] = []
     for host in hosts:
         ips = host_oob_ipv4s(host)
         status = host.get("status")
         if not ips:
             continue
-        if require_known and status not in {"known", "ready"}:
+        if require_known and status not in INSTALLABLE_HOST_STATUSES:
             continue
         ready_hosts.append(host)
     return len(ready_hosts) >= required, ready_hosts
+
+
+def ensure_additional_ntp(ai: AssistedClient, cluster_name: str | None = None) -> bool:
+    """Set additional_ntp_source if missing. Returns True if an update was sent."""
+    name = cluster_name or env_config.cluster_name()
+    wanted = env_config.additional_ntp_source()
+    cluster = get_cluster_dict(ai, name)
+    current = (cluster.get("additional_ntp_source") or "").strip()
+    if current:
+        return False
+    print(f"Setting additional_ntp_source={wanted!r} on cluster {name!r} ...")
+    ai_retry(ai, lambda: ai.update_cluster(name, {"additional_ntp_source": wanted}) or None)
+    return True

@@ -21,7 +21,13 @@ import time
 from pathlib import Path
 
 from air_common import boot_node_to_disk, default_node_name, get_api, get_simulation
-from assisted_common import cluster_hosts, get_client, host_oob_ipv4s, hosts_by_topology_name
+from assisted_common import (
+    INSTALLABLE_HOST_STATUSES,
+    cluster_hosts,
+    get_client,
+    host_oob_ipv4s,
+    hosts_by_topology_name,
+)
 from assisted_poll import (
     PollSnapshot,
     PollTracker,
@@ -50,6 +56,8 @@ def _configure_cluster(ai, name: str) -> None:
 
     if not any(m.get("cidr") == cidr for m in machine_networks):
         updates["machine_networks"] = [cidr]
+    if not (cluster.get("additional_ntp_source") or "").strip():
+        updates["additional_ntp_source"] = env_config.additional_ntp_source()
 
   # Multinode and HA clusters need API/Ingress VIPs unless user-managed networking.
     user_managed = bool(cluster.get("user_managed_networking"))
@@ -117,7 +125,7 @@ def _wait_for_installable_hosts(ai, name: str, *, timeout: int = 900) -> list[di
 
         ready = [
             h for h in hosts
-            if h.get("status") in {"known", "ready"} and host_oob_ipv4s(h)
+            if h.get("status") in INSTALLABLE_HOST_STATUSES and host_oob_ipv4s(h)
         ]
         for host in hosts:
             status = host.get("status")

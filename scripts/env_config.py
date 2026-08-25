@@ -22,6 +22,9 @@ DEFAULT_JUMP_HOST_INITIAL_PASSWORD = "nvidia"
 DEFAULT_JUMP_HOST_PASSWORD = "redhat"
 DEFAULT_API_VIP = "192.168.200.10"
 DEFAULT_INGRESS_VIP = "192.168.200.11"
+# RHCOS chrony in Air often cannot reach the default NTP pool; give it the
+# OOB gateway plus a public source. Override with ADDITIONAL_NTP_SOURCE.
+DEFAULT_ADDITIONAL_NTP_SOURCE = "192.168.200.1,time.google.com"
 OOB_IPV4_PREFIX = "192.168.200."
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -166,6 +169,13 @@ def ingress_vip() -> str:
     return (
         os.environ.get("INGRESS_VIP", DEFAULT_INGRESS_VIP).strip()
         or DEFAULT_INGRESS_VIP
+    )
+
+
+def additional_ntp_source() -> str:
+    return (
+        os.environ.get("ADDITIONAL_NTP_SOURCE", DEFAULT_ADDITIONAL_NTP_SOURCE).strip()
+        or DEFAULT_ADDITIONAL_NTP_SOURCE
     )
 
 

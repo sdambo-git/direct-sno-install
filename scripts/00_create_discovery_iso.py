@@ -49,6 +49,7 @@ def _cluster_overrides(*, multinode: bool) -> dict:
         "base_dns_domain": env_config.base_dns_domain(),
         "sno": not multinode,
         "infraenv": "false",
+        "additional_ntp_source": env_config.additional_ntp_source(),
     }
     if multinode:
         # Non-SNO HA: derive CP count from topology (do not set high_availability_mode None).
@@ -67,6 +68,7 @@ def _infraenv_overrides(cluster: str) -> dict:
         "pull_secret": str(env_config.pull_secret_path()),
         "ssh_public_key": env_config.ssh_public_key(),
         "image_type": "minimal-iso",
+        "additional_ntp_sources": env_config.additional_ntp_source(),
     }
 
 
