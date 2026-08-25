@@ -408,9 +408,37 @@ and quota is shared across the org.
 
 ### Multinode quick path
 
-Prefer not to copy-paste each command by hand? `scripts/run_cluster.py` runs
-this exact sequence for you, step by step or all at once — see
-[Scripts reference](#scripts-reference) below. The manual version:
+#### Option A — `run_cluster.py` orchestrator (recommended)
+
+`scripts/run_cluster.py` wraps every step below (both this multinode profile
+and the SNO flow) behind one entry point, so you don't have to copy-paste
+each `uv run ...` command by hand:
+
+```bash
+cd scripts
+export CLUSTER_PROFILE=multinode
+export CLUSTER_NAME=ocp-cluster
+export OCP_VERSION=4.19
+export EXPECTED_HOSTS=3
+# AIR_API_KEY, AI_OFFLINETOKEN, PULL_SECRET_PATH ...
+
+uv run run_cluster.py              # interactive menu — pick a step, a range, or 'all'
+uv run run_cluster.py --list       # print the numbered steps and exit
+uv run run_cluster.py --run 3-6    # run a specific range non-interactively
+uv run run_cluster.py --all --yes  # run everything, accepting every prompt's default
+uv run run_cluster.py --recover ocp-cp-1   # ad hoc: rebuild + re-attach discovery ISO
+```
+
+It runs the exact scripts listed in Option B below (nothing new happening
+under the hood), tracks per-step pass/fail for the session so you can retry
+just the step that failed, and on the multinode profile it automates the
+"mint a fresh ISO name and update every node's `cdrom`" step that's manual
+in Option B — generating `dsxair-discovery-<timestamp>`, uploading it, and
+rewriting `topology-multinode.json` for you. Every prompt has a safe default
+(shown when you answer, or picked automatically under `--yes`/non-interactive
+stdin), so it's CI-friendly too. Full reference: `scripts/SCRIPTS.md`.
+
+#### Option B — manual, step by step
 
 ```bash
 cd scripts
