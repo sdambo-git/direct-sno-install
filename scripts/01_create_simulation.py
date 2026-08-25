@@ -13,11 +13,19 @@ Air automatically provisions two extra nodes alongside:
 
 Prerequisite: Air images referenced by the topology must already exist.
 
+If a simulation with this name already exists, its nodes' attached cdrom
+images are compared against topology.json. A stale one (e.g. left over from
+before a fresh discovery-ISO upload under a new name) is deleted and
+re-imported automatically. Pass --force to always recreate, even when it
+looks aligned.
+
 Run:
     python 01_create_simulation.py
+    python 01_create_simulation.py --force
 """
 from __future__ import annotations
 
+import argparse
 import sys
 
 from air_common import (
@@ -27,6 +35,55 @@ from air_common import (
     wait_for_sim_state,
 )
 import env_config
+
+
+def _find_image_by_name(api, name: str):
+    return next(
+        (img for img in api.images.list(search=name) if img.name == name),
+        None,
+    )
+
+
+def _node_cdrom_image_ref(node) -> tuple[str | None, str | None]:
+    """Best-effort (name, id) of the image currently in a node's cdrom drive."""
+    cdrom = node.cdrom if isinstance(node.cdrom, dict) else {}
+    image = cdrom.get("image")
+    if isinstance(image, dict):
+        return image.get("name"), image.get("id")
+    if isinstance(image, str):
+        return None, image
+    return None, None
+
+
+def _stale_cdrom_nodes(api, sim, node_names: list[str]) -> list[tuple[str, str, str]]:
+    """Topology nodes whose live cdrom attachment doesn't match topology.json.
+
+    Returns (node_name, expected_image_name, actual_description) triples.
+    Best-effort: any SDK/API surprise is treated as "can't tell" (no
+    mismatch reported) rather than blocking reuse of the simulation.
+    """
+    stale: list[tuple[str, str, str]] = []
+    try:
+        nodes_by_name = {n.name: n for n in sim.nodes.list()}
+    except Exception:  # noqa: BLE001
+        return stale
+    for node_name in node_names:
+        expected_name = env_config.node_cdrom_image(node_name)
+        node = nodes_by_name.get(node_name)
+        if node is None:
+            stale.append((node_name, expected_name, "node missing from simulation"))
+            continue
+        try:
+            actual_name, actual_id = _node_cdrom_image_ref(node)
+        except Exception:  # noqa: BLE001
+            continue
+        if actual_name == expected_name:
+            continue
+        expected_image = _find_image_by_name(api, expected_name)
+        if expected_image is not None and actual_id == expected_image.id:
+            continue
+        stale.append((node_name, expected_name, actual_name or actual_id or "none"))
+    return stale
 
 
 def _print_jump_host(sim) -> None:
@@ -41,6 +98,15 @@ def _print_jump_host(sim) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Delete an existing simulation and re-import fresh, even if it "
+        "looks aligned with the current topology.",
+    )
+    args = parser.parse_args()
+
     api = get_api()
     topology_path = env_config.topology_path()
     sim_name = env_config.simulation_name()
@@ -50,10 +116,20 @@ def main() -> None:
     if existing:
         sim = existing[0]
         print(f"Simulation {sim_name!r} already exists (id={sim.id}, state={sim.state!r}).")
-        print("Delete it first in the Air UI if you want a truly fresh start, "
-              "or use 02_attach_discovery_iso.py / 09_recover_to_discovery.py to manage it.")
-        _print_jump_host(sim)
-        return
+        stale = _stale_cdrom_nodes(api, sim, node_names) if node_names else []
+        if stale:
+            print("Stale: its nodes' discovery ISO doesn't match the current topology:")
+            for node_name, expected, actual in stale:
+                print(f"  - {node_name}: attached={actual!r} expected={expected!r}")
+        if stale or args.force:
+            reason = "stale cdrom images" if stale else "--force"
+            print(f"Deleting simulation {sim.id} ({reason}) to import a fresh one ...")
+            sim.delete()
+        else:
+            print("Delete it first in the Air UI if you want a truly fresh start, "
+                  "or use 09_recover_to_discovery.py to manage it.")
+            _print_jump_host(sim)
+            return
 
     print(f"Importing {topology_path} and starting simulation {sim_name!r} ...")
     sim = api.simulations.import_from_simulation_manifest(

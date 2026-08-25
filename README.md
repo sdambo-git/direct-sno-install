@@ -76,9 +76,12 @@ Then finish networking / install in the Assisted Installer UI (Step 5
 below). Console-only ISO creation remains a valid fallback if you prefer
 not to use `ailib`.
 
-If `01_create_simulation.py` reports an existing or `INVALID` simulation
-named `sno-cluster`, delete it in the Air UI and re-run after the required
-images exist.
+If a simulation named `sno-cluster` already exists, `01_create_simulation.py`
+checks whether its nodes' attached discovery ISO still matches
+`topology.json`; if it's stale (e.g. after a `--force` ISO rebuild under a
+new name) it deletes and re-imports automatically. Pass `--force` yourself
+to always recreate regardless. If the simulation is stuck in an `INVALID`
+state that isn't a plain cdrom mismatch, delete it in the Air UI and re-run.
 
 ## Important: use Air's OOB network, not an `"outbound"` link — link-local IPs don't work here
 
@@ -342,9 +345,12 @@ The script also sets up the SSH jump host onto `oob-mgmt-server` and prints
 the `ssh` command (re-printable later with
 `04_create_jump_host_service.py`).
 
-If a simulation named `sno-cluster` already exists, the script refuses to
-import again — delete it in the Air UI for a fresh start (required after an
-`INVALID` import).
+If a simulation with this name already exists, its nodes' attached cdrom
+images are checked against `topology.json`; a stale one (left over from a
+previous ISO name) is deleted and re-imported automatically. `--force`
+always recreates, even when it looks aligned. If the simulation is stuck in
+an `INVALID` state that isn't a plain cdrom mismatch, delete it in the Air
+UI and re-run.
 
 To force discovery again after a failed install, rebuild the node
 (`node.rebuild()`) rather than toggling `boot`/`cdrom` — see the boot-order

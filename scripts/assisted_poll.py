@@ -184,50 +184,75 @@ def probe_oob_ping(oob_ip: str) -> bool:
         return True  # do not false-alarm if jump host is not ready yet
 
 
+def _node_discovery_boot_issues(name: str, node) -> list[PollIssue]:
+    boot = (node.advanced or {}).get("boot")
+    cdrom = node.cdrom
+    boot_list = boot if isinstance(boot, list) else [boot] if boot else []
+    recover_cmd = f"uv run scripts/09_recover_to_discovery.py --node {name}"
+    if boot in ("hd", ["hd"]) and not cdrom:
+        return [
+            PollIssue(
+                severity="action",
+                code=f"no-bootable-device-risk-{name}",
+                message=f"{name}: boot={boot!r} with cdrom detached — "
+                "will show 'No bootable device' if disk is blank",
+                hint=f"Run {recover_cmd} to rebuild blank disk and re-attach "
+                "discovery ISO with boot ['hd', 'cdrom'].",
+            )
+        ]
+    if boot_list and boot_list[0] == "cdrom":
+        return [
+            PollIssue(
+                severity="warn",
+                code=f"wrong-discovery-boot-{name}",
+                message=f"{name}: boot={boot!r} cdrom={cdrom!r}",
+                hint=REMEDIATION_HINTS["wrong_discovery_boot"],
+            )
+        ]
+    if not cdrom:
+        return [
+            PollIssue(
+                severity="action",
+                code=f"cdrom-missing-{name}",
+                message=f"{name}: discovery ISO not attached (boot={boot!r})",
+                hint=f"Run {recover_cmd}",
+            )
+        ]
+    return []
+
+
 def check_air_discovery_boot() -> list[PollIssue]:
-    """Warn when Air node is not configured to boot the discovery ISO."""
+    """Warn when any topology node isn't configured to boot the discovery ISO.
+
+    Checks every node from topology.json (all 3 for multinode), not just one
+    — a single stale/misattached node would otherwise stay silent all the way
+    to the poll timeout.
+    """
     if not os.environ.get("AIR_API_KEY") and not os.environ.get("AIR_API_KEY_FILE"):
         return []
     try:
-        from air_common import get_api, get_node, get_simulation
+        from air_common import get_api, get_simulation
 
         sim = get_simulation(get_api())
-        node = get_node(sim)
-        boot = (node.advanced or {}).get("boot")
-        cdrom = node.cdrom
-        boot_list = boot if isinstance(boot, list) else [boot] if boot else []
-        if boot in ("hd", ["hd"]) and not cdrom:
-            return [
-                PollIssue(
-                    severity="action",
-                    code="no-bootable-device-risk",
-                    message=f"Air node boot={boot!r} with cdrom detached — "
-                    "will show 'No bootable device' if disk is blank",
-                    hint="Run uv run scripts/09_recover_to_discovery.py to rebuild "
-                    "blank disk and re-attach discovery ISO with boot ['hd', 'cdrom'].",
+        node_names = env_config.topology_node_names() or [env_config.cluster_name()]
+        nodes_by_name = {n.name: n for n in sim.nodes.list()}
+        issues: list[PollIssue] = []
+        for name in node_names:
+            node = nodes_by_name.get(name)
+            if node is None:
+                issues.append(
+                    PollIssue(
+                        severity="action",
+                        code=f"node-missing-{name}",
+                        message=f"{name}: not found in simulation {sim.name!r}",
+                        hint="Run uv run scripts/01_create_simulation.py.",
+                    )
                 )
-            ]
-        if boot_list and boot_list[0] == "cdrom":
-            return [
-                PollIssue(
-                    severity="warn",
-                    code="wrong-discovery-boot",
-                    message=f"Air node boot={boot!r} cdrom={cdrom!r}",
-                    hint=REMEDIATION_HINTS["wrong_discovery_boot"],
-                )
-            ]
-        if not cdrom:
-            return [
-                PollIssue(
-                    severity="action",
-                    code="cdrom-missing",
-                    message=f"Discovery ISO not attached (boot={boot!r})",
-                    hint="Run uv run scripts/09_recover_to_discovery.py",
-                )
-            ]
+                continue
+            issues.extend(_node_discovery_boot_issues(name, node))
+        return issues
     except Exception:  # noqa: BLE001
-        pass
-    return []
+        return []
 
 
 def check_air_post_boot_to_disk() -> list[PollIssue]:

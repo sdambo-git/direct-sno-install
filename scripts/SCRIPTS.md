@@ -40,7 +40,7 @@ CI-friendly.
 | 0 | `00_create_discovery_iso.py` | Once (or after `--force`) | Creates Assisted Installer SaaS SNO cluster + infraenv via `ailib`, downloads the discovery ISO locally. Idempotent reuse; `--force` recreates. |
 | — | `upload_discovery_iso.py` | After step 0 | Uploads the local ISO to Air (name must match topology `cdrom`). Skips if present; no `--replace` — use `--name` for fresh content. |
 | — | `upload_blank_disk.py` | Before first import | Creates sparse local 100G qcow2 (if needed) and uploads Air image `blank-100g`. Skips if present (content never needs to change). |
-| 1 | `01_create_simulation.py` | After both Air images exist | Imports topology manifest (`topology.json` by default) and starts the simulation. Sets up jump-host SSH and clears the first-login password. |
+| 1 | `01_create_simulation.py` | After both Air images exist | Imports topology manifest (`topology.json` by default) and starts the simulation. Sets up jump-host SSH and clears the first-login password. If a same-named simulation already exists, auto-deletes and re-imports it when its nodes' cdrom doesn't match topology (or always with `--force`). |
 | 6 | `06_wait_for_host_ipv4.py` | After the node boots discovery | Polls Assisted Installer until host(s) show OOB IPv4 `192.168.200.x`. Does not start install. |
 | 7 | `07_install_cluster.py` | After wait succeeds | Configures networking/VIPs, starts install, downloads kubeconfig. |
 | 9 | `09_recover_to_discovery.py` | Failed install / no bootable device | `node.rebuild()` + re-attach discovery ISO; optional `--reset-ai`. |

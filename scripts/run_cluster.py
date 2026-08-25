@@ -166,7 +166,19 @@ def step_verify_alignment(ctx: Ctx) -> bool:
 
 
 def step_create_simulation(ctx: Ctx) -> bool:
-    _run("01_create_simulation.py", ctx=ctx)
+    # 01_create_simulation.py already auto-detects and recreates a stale
+    # simulation (nodes' cdrom not matching topology.json) on its own; this
+    # only offers an escape hatch to force a fresh sim even when it looks
+    # aligned.
+    force = _confirm(
+        "Force recreate the Air simulation even if it looks aligned (--force)?",
+        ctx=ctx,
+        default=False,
+    )
+    args = ["01_create_simulation.py"]
+    if force:
+        args.append("--force")
+    _run(*args, ctx=ctx)
     return True
 
 
