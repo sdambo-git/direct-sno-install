@@ -12,6 +12,26 @@ Auth / inputs are resolved by `env_config.py` — see the README table for
 `AIR_API_KEY`, `AI_OFFLINETOKEN`, `PULL_SECRET_PATH`, `OCP_VERSION`,
 `CLUSTER_PROFILE`, and related variables.
 
+## Orchestrator — run the whole flow interactively
+
+Instead of running every script below by hand, `run_cluster.py` wraps the
+whole sequence (both SNO and multinode) in one entry point where you choose
+which steps to run, in order:
+
+```bash
+uv run run_cluster.py              # interactive menu
+uv run run_cluster.py --list       # print the numbered steps
+uv run run_cluster.py --all --yes  # run everything non-interactively
+uv run run_cluster.py --run 3-6    # run a specific range
+uv run run_cluster.py --recover ocp-cp-1   # ad hoc node recovery
+```
+
+It shells out to the exact scripts listed below (nothing new happening under
+the hood), tracks per-step pass/fail for the session, generates a fresh
+timestamped discovery-ISO name and rewrites the topology `cdrom` fields for
+you on the multinode profile (see the README caveat about `--replace`), and
+every prompt has a safe default so `--yes` is CI-friendly.
+
 ## Normal install flow — SNO (in order)
 
 | # | Script | Run when | What it does |
@@ -60,6 +80,12 @@ Uses `topology-multinode.json` and `CLUSTER_NAME=ocp-cluster` by default.
 | `09_recover_to_discovery.py` | Failed install / no bootable device | Rebuild blank disk + re-attach ISO; `--node` for multinode; `--reset-ai` for AI cluster reset. |
 
 **Caveat on `02`/`03`:** README's blank-disk + permanent `["hd","cdrom"]` note explains why `node.rebuild()` is preferred over toggling boot order.
+
+## Orchestrator
+
+| Script | What it does |
+|---|---|
+| `run_cluster.py` | Interactive/scriptable runner that walks the numbered steps above (both profiles) in order, with menu-driven or `--run`/`--all`/`--from` non-interactive modes. See "Orchestrator" section above. |
 
 ## Standalone / alternative-path scripts
 

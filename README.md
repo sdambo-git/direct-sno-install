@@ -408,6 +408,10 @@ and quota is shared across the org.
 
 ### Multinode quick path
 
+Prefer not to copy-paste each command by hand? `scripts/run_cluster.py` runs
+this exact sequence for you, step by step or all at once — see
+[Scripts reference](#scripts-reference) below. The manual version:
+
 ```bash
 cd scripts
 export CLUSTER_PROFILE=multinode
