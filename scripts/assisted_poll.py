@@ -77,9 +77,9 @@ REMEDIATION_HINTS: dict[str, str] = {
         "HA bootstrap could not SSH to a master after image write. The bootstrap "
         "node stays at 'Starting installation' / bootstrap while the others should "
         "leave 'Writing image to disk 100%' and Reboot onto the installed disk. "
-        "Check those nodes' Air consoles. Recover with "
-        "uv run 09_recover_to_discovery.py --node <name> --reset-ai (all three "
-        "if needed), then re-run from host discovery."
+        "Check those nodes' Air consoles. Recover all masters in one run: "
+        "uv run 09_recover_to_discovery.py --all --reset-ai, then re-run from "
+        "host discovery."
     ),
 }
 

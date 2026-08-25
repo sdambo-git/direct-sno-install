@@ -501,7 +501,7 @@ nodes and may serve a stale CDROM cache even when it's not in use.
 Per-node recovery:
 
 ```bash
-uv run 09_recover_to_discovery.py --node ocp-cp-1
+uv run 09_recover_to_discovery.py --all --reset-ai
 ```
 
 ## Scripts reference

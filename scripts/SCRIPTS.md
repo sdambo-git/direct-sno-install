@@ -43,7 +43,7 @@ CI-friendly.
 | 1 | `01_create_simulation.py` | After both Air images exist | Imports topology manifest (`topology.json` by default) and starts the simulation. Sets up jump-host SSH and clears the first-login password. If a same-named simulation already exists, auto-deletes and re-imports it when its nodes' cdrom doesn't match topology (or always with `--force`). |
 | 6 | `06_wait_for_host_ipv4.py` | After the node boots discovery | Polls Assisted Installer until host(s) show OOB IPv4 `192.168.200.x`. Does not start install. |
 | 7 | `07_install_cluster.py` | After wait succeeds | Configures networking/VIPs, starts install, downloads kubeconfig. |
-| 9 | `09_recover_to_discovery.py` | Failed install / no bootable device | `node.rebuild()` + re-attach discovery ISO; optional `--reset-ai`. |
+| 9 | `09_recover_to_discovery.py` | Failed install / no bootable device | `node.rebuild()` + re-attach discovery ISO. Prefer `--all` for HA (one stop/start). Optional `--reset-ai`. |
 
 ## Normal install flow — multinode (3-node HA)
 
@@ -61,7 +61,7 @@ Uses `topology-multinode.json` and `CLUSTER_NAME=ocp-cluster` by default.
 | 6 | `06_wait_for_host_ipv4.py --require-known --min-hosts 3` | Waits for all three hosts. |
 | — | `assign_host_roles.py` | Optional; assigns `master` to all CP topology nodes. |
 | 7 | `07_install_cluster.py` | Sets API/Ingress VIPs (`API_VIP`, `INGRESS_VIP`), installs, downloads credentials. |
-| 9 | `09_recover_to_discovery.py --node <name>` | Per-node recovery. |
+| 9 | `09_recover_to_discovery.py --all --reset-ai` | Recover every topology node in one shutdown cycle. |
 
 ## Assisted Installer helpers
 
@@ -78,7 +78,7 @@ Uses `topology-multinode.json` and `CLUSTER_NAME=ocp-cluster` by default.
 | `03_boot_to_disk.py` | Legacy | Discouraged; see README blank-disk pattern. |
 | `04_create_jump_host_service.py` | Any time after `01` | Idempotent SSH Service on `oob-mgmt-server` + first-login password bootstrap; prints `ssh` command. |
 | `bootstrap_jump_host.py` | Jump host SSH fails with expired password | Re-run password bootstrap only (also creates SSH service if missing). |
-| `09_recover_to_discovery.py` | Failed install / no bootable device | Rebuild blank disk + re-attach ISO; `--node` for multinode; `--reset-ai` for AI cluster reset. |
+| `09_recover_to_discovery.py` | Failed install / no bootable device | Rebuild blank disk + re-attach ISO. `--all` or repeated `--node`; `--reset-ai` for AI cluster reset. Do not run three separate recovers — each one shuts down the whole sim. |
 
 **Caveat on `02`/`03`:** README's blank-disk + permanent `["hd","cdrom"]` note explains why `node.rebuild()` is preferred over toggling boot order.
 

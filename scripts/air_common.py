@@ -70,17 +70,27 @@ def get_node(sim: Simulation, name: str | None = None) -> Node:
     raise SystemExit(f"No node named {node_name!r} found in simulation {sim.name!r}.")
 
 
+# A 3-node HA sim (plus oob-mgmt-server / switch) can sit in SHUTTING_DOWN
+# well past 4 minutes. Calling start() from that state is rejected by Air.
+SHUTDOWN_TIMEOUT = 600
+START_TIMEOUT = 300
+
+
 def wait_for_sim_state(sim: Simulation, *states: str, timeout: int = 180, interval: int = 4) -> None:
-    deadline = time.monotonic() + timeout
+    started = time.monotonic()
+    deadline = started + timeout
     while True:
         sim.refresh()
-        print(f"  simulation state: {sim.state}")
+        elapsed = int(time.monotonic() - started)
+        print(f"  simulation state: {sim.state} ({elapsed}s)")
         if sim.state in states:
             return
         if time.monotonic() > deadline:
             raise SystemExit(
                 f"Timed out after {timeout}s waiting for simulation state in {states} "
-                f"(last seen: {sim.state!r})."
+                f"(last seen: {sim.state!r}). If it is still SHUTTING_DOWN, wait "
+                "until the Air UI shows stopped, then re-run — do not start() from "
+                "SHUTTING_DOWN."
             )
         time.sleep(interval)
 
@@ -88,12 +98,19 @@ def wait_for_sim_state(sim: Simulation, *states: str, timeout: int = 180, interv
 def stop_simulation_and_clear_checkpoints(sim: Simulation) -> None:
     """Stop the simulation (if running) and delete any checkpoints so the
     node can be safely patched afterwards."""
-    if sim.state != "INACTIVE":
+    sim.refresh()
+    if sim.state == "INACTIVE":
+        print(f"Simulation {sim.name!r} is already INACTIVE.")
+    elif sim.state == "SHUTTING_DOWN":
+        print(
+            f"Simulation {sim.name!r} is already SHUTTING_DOWN; "
+            "waiting for INACTIVE ..."
+        )
+        wait_for_sim_state(sim, "INACTIVE", timeout=SHUTDOWN_TIMEOUT)
+    else:
         print(f"Stopping simulation {sim.name!r} ...")
         sim.shutdown()
-        wait_for_sim_state(sim, "INACTIVE", timeout=240)
-    else:
-        print(f"Simulation {sim.name!r} is already INACTIVE.")
+        wait_for_sim_state(sim, "INACTIVE", timeout=SHUTDOWN_TIMEOUT)
 
     checkpoints = list(sim.checkpoints.list())
     if not checkpoints:
@@ -126,9 +143,33 @@ def stop_simulation_and_clear_checkpoints(sim: Simulation) -> None:
 
 
 def start_simulation(sim: Simulation) -> None:
+    """Bring the simulation to ACTIVE, waiting out transitional states first.
+
+    Air rejects start() unless the sim is INACTIVE. A previous recover that
+    timed out mid-shutdown leaves SHUTTING_DOWN — wait, then start.
+    """
+    sim.refresh()
+    if sim.state == "ACTIVE":
+        print(f"Simulation {sim.name!r} is already ACTIVE.")
+        return
+    if sim.state in {"STARTING", "REBUILDING"}:
+        wait_for_sim_state(sim, "ACTIVE", timeout=START_TIMEOUT)
+        return
+    if sim.state == "SHUTTING_DOWN":
+        print(
+            f"Simulation {sim.name!r} is SHUTTING_DOWN; "
+            "waiting for INACTIVE before start ..."
+        )
+        wait_for_sim_state(sim, "INACTIVE", timeout=SHUTDOWN_TIMEOUT)
+    sim.refresh()
+    if sim.state != "INACTIVE":
+        raise SystemExit(
+            f"Cannot start simulation {sim.name!r} from state {sim.state!r} "
+            "(Air requires INACTIVE)."
+        )
     print(f"Starting simulation {sim.name!r} ...")
     sim.start()
-    wait_for_sim_state(sim, "ACTIVE", timeout=180)
+    wait_for_sim_state(sim, "ACTIVE", timeout=START_TIMEOUT)
 
 
 def boot_node_to_disk(sim: Simulation, node_name: str | None = None, *, force: bool = False) -> None:
