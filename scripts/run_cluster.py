@@ -253,7 +253,7 @@ STEPS: list[Step] = [
     Step(8, "Assign host roles (master/worker, multinode only)", step_assign_roles),
     Step(9, "Configure cluster networking (gate, no install)", step_configure_only),
     Step(10, "Install the OpenShift cluster", step_install),
-    Step(11, "Verify the installed cluster (oc get nodes)", step_verify_cluster),
+    Step(11, "Install oc, kubeconfig, and cluster DNS on the jump host", step_verify_cluster),
 ]
 STEPS_BY_NUM = {s.num: s for s in STEPS}
 

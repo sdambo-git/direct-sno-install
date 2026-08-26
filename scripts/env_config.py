@@ -21,6 +21,7 @@ DEFAULT_BLANK_IMAGE_NAME = "blank-100g"
 DEFAULT_JUMP_HOST_INITIAL_PASSWORD = "nvidia"
 DEFAULT_JUMP_HOST_PASSWORD = "redhat"
 DEFAULT_OC_CLIENT_VERSION = "4.12.0"
+DEFAULT_API_VIP = "192.168.200.10"
 DEFAULT_INGRESS_VIP = "192.168.200.11"
 # RHCOS chrony in Air often cannot reach the default NTP pool; give it the
 # OOB gateway plus a public source. Override with ADDITIONAL_NTP_SOURCE.
