@@ -36,7 +36,8 @@ not hardcode secrets in the repo.
 | Air API key | `AIR_API_KEY` or `AIR_API_KEY_FILE` |
 | Assisted Installer offline token | `AI_OFFLINETOKEN` or `AI_OFFLINETOKEN_FILE` |
 | Pull secret | `PULL_SECRET_PATH` (path to JSON file) |
-| SSH public key | `SSH_PUBLIC_KEY_PATH` (default `~/.ssh/id_ed25519.pub` or `id_rsa.pub`) |
+| SSH public key (OpenShift nodes) | `SSH_PUBLIC_KEY_PATH` (default `~/.ssh/id_ed25519.pub` or `id_rsa.pub`) — baked into the discovery ISO |
+| SSH public key (Air jump host) | The key you add in the **Air UI** (account / simulation SSH keys). `ssh` to `oob-mgmt-server` uses that key, not necessarily `id_ed25519`. |
 | OpenShift version | `OCP_VERSION` (**required**, e.g. `4.19`) |
 | Cluster name | `CLUSTER_NAME` (default `sno-cluster`, or `ocp-cluster` when `CLUSTER_PROFILE=multinode`) |
 | Cluster profile | `CLUSTER_PROFILE` (`sno` default, or `multinode`) |
@@ -146,8 +147,10 @@ it's not a blocker for getting the install itself to complete either way.
 
 **First-login password on `oob-mgmt-server`:** the auto-provisioned jump host
 ships with user `ubuntu` / factory password `nvidia` and *requires* a password
-change on first SSH. Until that happens, pubkey auth connects but every
-command fails with `Password change required but no TTY available`.
+change on first SSH. Pubkey login uses the SSH key you added in the **Air UI**
+(not `SSH_PUBLIC_KEY_PATH`, which is only for the OpenShift nodes). Until the
+password is changed, pubkey auth connects but every command fails with
+`Password change required but no TTY available`.
 `01_create_simulation.py` and `04_create_jump_host_service.py` now run the
 bootstrap automatically (via `expect`). Override the new password with
 `JUMP_HOST_PASSWORD` (default `redhat`). Re-run manually with
@@ -473,15 +476,53 @@ uv run 07_install_cluster.py --configure-only   # gate before install
 uv run 07_install_cluster.py
 ```
 
-After install, tunnel to the **API VIP** (not a node IP):
+After install, run orchestrator **step 11** (`08_verify_cluster.py`). It
+copies `oc` and kubeconfig onto `oob-mgmt-server`, writes cluster names
+into that host's `/etc/hosts`, and prints the tunnel commands below with
+the real jump-host port and FQDN filled in.
+
+From this laptop, point the API hostname at the tunnel, then forward the
+**API VIP** (not a node IP) in **terminal 1**. Run `ssh` as yourself so it
+can use the key you added in the Air UI (the same key that already logs
+you into the jump host). That `ssh -N` sits until you Ctrl+C — run `oc` in
+another terminal. The kubeconfig already uses
+`https://api.ocp-cluster.dsx.air.local:6443`, so plain `oc get nodes` is
+enough — no `--server` / `--insecure-skip-tls-verify`.
 
 ```bash
-# From bootstrap_jump_host.py / 01 output
+# /etc/hosts (once)
+127.0.0.1 api.ocp-cluster.dsx.air.local
+127.0.0.1 console-openshift-console.apps.ocp-cluster.dsx.air.local
+127.0.0.1 oauth-openshift.apps.ocp-cluster.dsx.air.local
+
+# Terminal 1 — leave this running (step 11 fills in <port> and <jump-host-fqdn>)
 ssh -N -L 127.0.0.1:6443:192.168.200.10:6443 -p <port> ubuntu@<jump-host-fqdn>
 
+# Another terminal
 export KUBECONFIG=../.cache/kubeconfig.ocp-cluster
-oc get nodes --server=https://127.0.0.1:6443 --insecure-skip-tls-verify
+oc get nodes
 ```
+
+To open the OpenShift **web console**, start a **second** SSH tunnel for the
+**Ingress VIP**, as the same user as the API tunnel, so SSH still offers the
+Air UI key. Do **not** `sudo ssh` — that runs as root, drops your agent, and
+often offers `id_ed25519` instead. Keep the API tunnel.
+
+If binding 443/80 fails with "Permission denied", allow unprivileged ports
+once, then retry the `ssh` as yourself:
+
+```bash
+sudo sysctl net.ipv4.ip_unprivileged_port_start=80
+
+# Terminal 2 — leave this running too (do not include 6443; that is terminal 1)
+ssh -N \
+  -L 127.0.0.1:443:192.168.200.11:443 \
+  -L 127.0.0.1:80:192.168.200.11:80 \
+  -p <port> ubuntu@<jump-host-fqdn>
+```
+
+Then open `https://console-openshift-console.apps.ocp-cluster.dsx.air.local`.
+The kubeadmin password is in `.cache/` next to the kubeconfig.
 
 Default VIPs: `API_VIP=192.168.200.10`, `INGRESS_VIP=192.168.200.11`.
 Override if they conflict with DHCP leases.
@@ -498,7 +539,7 @@ nodes and may serve a stale CDROM cache even when it's not in use.
 | P1 Discovery | 3 hosts in AI with OOB `192.168.200.x` | Topology, ISO, OOB networking |
 | P2 Roles + VIPs | AI networking validations pass; cluster `ready` | `assign_host_roles.py`, VIP conflicts |
 | P3 Install | Cluster `installed` | `09_recover_to_discovery.py --node <name>` |
-| P4 Verify | `oc get nodes` → 3 Ready | Tunnel to API VIP, refresh AI token |
+| P4 Verify | `oc get nodes` → 3 Ready | Step 11 tunnels to API VIP; `/etc/hosts` for console |
 
 Per-node recovery:
 

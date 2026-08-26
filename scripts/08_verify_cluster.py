@@ -14,7 +14,8 @@ Version defaults to 4.12.0; set OC_CLIENT_VERSION or OCP_VERSION to match
 the cluster). Copies the binary to `/usr/local/bin/oc` and the kubeconfig
 to `~/.kube/config`. Writes `api` / `api-int` / console / oauth names into
 `/etc/hosts` (and a dnsmasq wildcard for `*.apps` when dnsmasq is already
-running). Does not run `oc get nodes`.
+running). Prints SSH tunnels so this laptop can reach the API VIP (`oc`)
+and Ingress VIP (web console). Does not run `oc get nodes`.
 
     uv run 08_verify_cluster.py
     KUBECONFIG=.cache/kubeconfig.ocp-cluster uv run 08_verify_cluster.py --local
@@ -30,7 +31,13 @@ import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
 
-from air_common import ensure_jump_host_ready, get_api, get_simulation, jump_host_ssh_command
+from air_common import (
+    ensure_jump_host_ready,
+    get_api,
+    get_simulation,
+    jump_host_ssh_command,
+    jump_host_ssh_target,
+)
 import env_config
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -286,6 +293,63 @@ def _install_cluster_dns_on_jump_host(service, server, kubeconfig: Path) -> None
     _ssh(service, server, f"getent hosts {api_names[0]} {ingress_names[0]}")
 
 
+def _kubeadmin_path() -> Path:
+    name = env_config.cluster_name()
+    cache = _REPO_ROOT / ".cache"
+    for candidate in (
+        cache / f"kubeadmin-password.{name}",
+        cache / "kubeadmin-password",
+        cache / f"{name}-kubeadmin-password",
+    ):
+        if candidate.is_file():
+            return candidate
+    return cache / f"kubeadmin-password.{name}"
+
+
+def _print_laptop_tunnels(service, server, kubeconfig: Path) -> None:
+    fqdn, port, user = jump_host_ssh_target(service, server)
+    api_ip, api_names, ingress_ip, ingress_names = _hosts_plan(kubeconfig)
+    api_host = api_names[0]
+    console = next(
+        (name for name in ingress_names if name.startswith("console-")),
+        ingress_names[0],
+    )
+    oauth = next(
+        (name for name in ingress_names if name.startswith("oauth-")),
+        ingress_names[1] if len(ingress_names) > 1 else ingress_names[0],
+    )
+    kubeadmin = _kubeadmin_path()
+    target = f"-p {port} {user}@{fqdn}"
+    api_fwd = f"127.0.0.1:6443:{api_ip}:6443"
+    print(
+        "\nFrom this laptop, point the API/console names at 127.0.0.1, then use "
+        "two SSH tunnels (each `ssh -N` sits until you Ctrl+C).\n\n"
+        "    # /etc/hosts (once)\n"
+        f"    127.0.0.1 {api_host}\n"
+        f"    127.0.0.1 {console}\n"
+        f"    127.0.0.1 {oauth}\n\n"
+        "    # Terminal 1 — API VIP (leave this running). Uses the Air UI SSH key.\n"
+        f"    ssh -N -L {api_fwd} {target}\n\n"
+        "    # Another terminal — oc\n"
+        f"    export KUBECONFIG={kubeconfig}\n"
+        f"    oc get nodes\n"
+    )
+    print(
+        "    # Terminal 2 — Ingress VIP for the web console. Same user as\n"
+        "    # terminal 1 so ssh uses the key you added in the Air UI.\n"
+        "    # Do not sudo ssh: that drops your agent and often offers\n"
+        "    # ~/.ssh/id_ed25519 instead. If bind to 443/80 is denied, run once:\n"
+        "    #   sudo sysctl net.ipv4.ip_unprivileged_port_start=80\n"
+        "    # then retry this ssh as yourself.\n\n"
+        f"    ssh -N \\\n"
+        f"      -L 127.0.0.1:443:{ingress_ip}:443 \\\n"
+        f"      -L 127.0.0.1:80:{ingress_ip}:80 \\\n"
+        f"      {target}\n\n"
+        f"Then open https://{console}\n"
+        f"kubeadmin password file: {kubeadmin}\n"
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -320,8 +384,9 @@ def main() -> None:
     _install_cluster_dns_on_jump_host(service, server, kubeconfig)
     print(
         f"Installed {_REMOTE_OC}, ~/{_REMOTE_KUBECONFIG}, and /etc/hosts entries "
-        "on oob-mgmt-server. SSH in and run oc yourself."
+        "on oob-mgmt-server. SSH in and run oc there, or tunnel from this laptop:"
     )
+    _print_laptop_tunnels(service, server, kubeconfig)
 
 
 if __name__ == "__main__":

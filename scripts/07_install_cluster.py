@@ -348,10 +348,11 @@ def main() -> None:
     _download_credentials(ai, name, cache)
     verify_target = env_config.api_vip() if env_config.is_multinode() else oob_ip
     print(
-        f"\nNext: verify with kubeconfig at {cache / f'kubeconfig.{name}'}\n"
-        f"Tunnel example (multinode): ssh -N -L 127.0.0.1:6443:{verify_target}:6443 "
+        f"\nNext: run step 11 (08_verify_cluster.py). Kubeconfig is at "
+        f"{cache / f'kubeconfig.{name}'}.\n"
+        f"Laptop tunnel: ssh -N -L 127.0.0.1:6443:{verify_target}:6443 "
         f"<jump-host-ssh-command>\n"
-        f"  oc get nodes --server=https://127.0.0.1:6443 --insecure-skip-tls-verify"
+        f"  Then: export KUBECONFIG={cache / f'kubeconfig.{name}'} && oc get nodes"
     )
 
 

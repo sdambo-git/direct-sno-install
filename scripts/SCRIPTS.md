@@ -43,7 +43,7 @@ CI-friendly.
 | 1 | `01_create_simulation.py` | After both Air images exist | Imports topology manifest (`topology.json` by default) and starts the simulation. Sets up jump-host SSH and clears the first-login password. If a same-named simulation already exists, auto-deletes and re-imports it when its nodes' cdrom doesn't match topology (or always with `--force`). |
 | 6 | `06_wait_for_host_ipv4.py` | After the node boots discovery | Polls Assisted Installer until host(s) show OOB IPv4 `192.168.200.x`. Does not start install. |
 | 7 | `07_install_cluster.py` | After wait succeeds | Configures networking/VIPs, starts install, downloads kubeconfig. |
-| 8 | `08_verify_cluster.py` | After install | Copies `oc` to `/usr/local/bin` and kubeconfig to `~/.kube/config` on the jump host, and writes `api` / console / oauth names into `/etc/hosts`. Downloads the 4.12.0 client from mirror.openshift.com if needed. Does not run `oc get nodes`. |
+| 8 | `08_verify_cluster.py` | After install | Copies `oc` to `/usr/local/bin` and kubeconfig to `~/.kube/config` on the jump host, writes `api` / console / oauth names into `/etc/hosts`, and prints SSH tunnels for laptop `oc` (API VIP :6443) and the web console (Ingress VIP :443). Downloads the 4.12.0 client from mirror.openshift.com if needed. Does not run `oc get nodes`. |
 | 9 | `09_recover_to_discovery.py` | Failed install / no bootable device | `node.rebuild()` + re-attach discovery ISO. Prefer `--all` for HA (one stop/start). Optional `--reset-ai`. |
 
 ## Normal install flow — multinode (3-node HA)
@@ -62,7 +62,7 @@ Uses `topology-multinode.json` and `CLUSTER_NAME=ocp-cluster` by default.
 | 6 | `06_wait_for_host_ipv4.py --require-known --min-hosts 3` | Waits for all three hosts. |
 | — | `assign_host_roles.py` | Optional; assigns `master` to all CP topology nodes. |
 | 7 | `07_install_cluster.py` | Sets API/Ingress VIPs (`API_VIP`, `INGRESS_VIP`), installs, downloads credentials. |
-| 8 | `08_verify_cluster.py` | Copies `oc` and kubeconfig to the jump host; adds `api` / console / oauth `/etc/hosts` entries. |
+| 8 | `08_verify_cluster.py` | Copies `oc` and kubeconfig; adds `/etc/hosts`; prints API/console SSH tunnels. |
 | 9 | `09_recover_to_discovery.py --all --reset-ai` | Recover every topology node in one shutdown cycle. |
 
 ## Assisted Installer helpers
