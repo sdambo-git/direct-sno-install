@@ -52,6 +52,7 @@ not hardcode secrets in the repo.
 | Local discovery ISO path | `DISCOVERY_ISO_PATH` / `ISO_PATH` (default `.cache/dsxair-discovery.iso`) |
 | Jump host new password | `JUMP_HOST_PASSWORD` (default `redhat`) |
 | Jump host factory password | `JUMP_HOST_INITIAL_PASSWORD` (default image value or `nvidia`) |
+| `oc` client version | `OC_CLIENT_VERSION` (default `4.12.0`, or `{OCP_VERSION}.0`) |
 
 Shared resolution lives in `scripts/env_config.py`.
 

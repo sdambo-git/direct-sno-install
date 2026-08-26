@@ -20,7 +20,7 @@ DEFAULT_DISCOVERY_ISO_NAME = "dsxair-discovery-iso"
 DEFAULT_BLANK_IMAGE_NAME = "blank-100g"
 DEFAULT_JUMP_HOST_INITIAL_PASSWORD = "nvidia"
 DEFAULT_JUMP_HOST_PASSWORD = "redhat"
-DEFAULT_API_VIP = "192.168.200.10"
+DEFAULT_OC_CLIENT_VERSION = "4.12.0"
 DEFAULT_INGRESS_VIP = "192.168.200.11"
 # RHCOS chrony in Air often cannot reach the default NTP pool; give it the
 # OOB gateway plus a public source. Override with ADDITIONAL_NTP_SOURCE.
@@ -123,6 +123,23 @@ def ocp_version() -> str:
             "No OpenShift version set. Export OCP_VERSION=4.19 (or similar)."
         )
     return value
+
+
+def oc_client_version() -> str:
+    """Version folder on mirror.openshift.com for the `oc` tarball.
+
+    Defaults to 4.12.0 (the client used by this lab's verify helper). Override
+    with OC_CLIENT_VERSION, or OCP_VERSION (a two-part value like 4.19 becomes
+    4.19.0).
+    """
+    raw = (
+        os.environ.get("OC_CLIENT_VERSION") or os.environ.get("OCP_VERSION") or ""
+    ).strip()
+    if not raw:
+        return DEFAULT_OC_CLIENT_VERSION
+    if raw.count(".") == 1:
+        return f"{raw}.0"
+    return raw
 
 
 def cluster_profile() -> str:

@@ -17,6 +17,8 @@ Handles two annoying, empirically-discovered Air quirks:
 from __future__ import annotations
 
 import os
+import pty
+import select
 import shutil
 import subprocess
 import time
@@ -321,54 +323,109 @@ def _wait_for_jump_host_ssh(
     )
 
 
-def bootstrap_jump_host_password(
-    service: Service,
-    server: Node,
+def _bootstrap_password_with_pty(
     *,
-    initial_password: str | None = None,
-    new_password: str | None = None,
-    timeout: int = 60,
+    host: str,
+    port: int,
+    username: str,
+    initial: str,
+    new: str,
+    timeout: int,
 ) -> None:
-    """Clear NVIDIA Air's mandatory first-login password change on oob-mgmt-server.
-
-    Fresh oob-mgmt-server VMs ship with default user ``ubuntu`` / password
-    ``nvidia`` and refuse to run commands until the password is changed.
-    Pubkey auth still connects, but BatchMode SSH fails with
-    ``Password change required but no TTY available``.
-    """
-    ready, reason = jump_host_ssh_probe(service, server, timeout=15)
-    if ready:
-        print(f"Jump host {OOB_SERVER_NAME!r} already accepts non-interactive SSH.")
-        return
-    if reason != "password_expired" and reason != "not_reachable":
-        print(
-            f"Jump host SSH probe: {reason!r} — waiting for SSH to come up before "
-            "bootstrapping the password ..."
+    """Change the expired first-login password using a PTY (no `expect` binary)."""
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.execvp(
+            "ssh",
+            [
+                "ssh",
+                "-tt",
+                "-o",
+                "StrictHostKeyChecking=accept-new",
+                "-p",
+                str(port),
+                f"{username}@{host}",
+            ],
         )
-        _wait_for_jump_host_ssh(service, server, timeout=120)
-        ready, reason = jump_host_ssh_probe(service, server, timeout=15)
-        if ready:
-            print(f"Jump host {OOB_SERVER_NAME!r} already accepts non-interactive SSH.")
-            return
+        raise SystemExit("exec ssh failed")
 
-    if shutil.which("expect") is None:
+    buf = b""
+    deadline = time.monotonic() + timeout
+    sent_current = sent_new = sent_retype = False
+
+    def _write(text: str) -> None:
+        os.write(fd, text.encode())
+
+    try:
+        while time.monotonic() < deadline:
+            ready, _, _ = select.select([fd], [], [], 1.0)
+            if not ready:
+                waited_pid, status = os.waitpid(pid, os.WNOHANG)
+                if waited_pid:
+                    if os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0:
+                        return
+                    raise SystemExit(
+                        f"ssh exited during password bootstrap (status={status})."
+                    )
+                continue
+            try:
+                chunk = os.read(fd, 4096)
+            except OSError:
+                break
+            if not chunk:
+                break
+            buf += chunk
+            lower = buf.lower()
+            if b"are you sure you want to continue connecting" in lower:
+                _write("yes\r")
+                buf = b""
+                continue
+            if not sent_current and (
+                b"current password:" in lower or b"password:" in lower
+            ):
+                _write(initial + "\r")
+                sent_current = True
+                buf = b""
+                continue
+            if sent_current and not sent_new and b"new password:" in lower:
+                _write(new + "\r")
+                sent_new = True
+                buf = b""
+                continue
+            if sent_new and not sent_retype and b"retype new password:" in lower:
+                _write(new + "\r")
+                sent_retype = True
+                buf = b""
+                continue
+            if b"password updated successfully" in lower or b"jump-host-bootstrap-ok" in lower:
+                return
+            if sent_retype and (b"$ " in buf[-40:] or b"# " in buf[-40:]):
+                _write("echo jump-host-bootstrap-ok\r")
+                buf = b""
         raise SystemExit(
-            "The `expect` command is required to bootstrap the jump host password. "
-            "Install expect (e.g. `sudo dnf install expect`) or run the password "
-            "change manually, then re-run this script."
+            "Timed out changing the jump host password over a PTY "
+            f"(saw current={sent_current} new={sent_new} retype={sent_retype})."
         )
+    finally:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.waitpid(pid, os.WNOHANG)
+        except ChildProcessError:
+            pass
 
-    host, port, username = jump_host_ssh_target(service, server)
-    initial = initial_password or env_config.jump_host_initial_password(
-        image_default=getattr(server.image, "default_password", None)
-    )
-    new = new_password or env_config.jump_host_password()
 
-    print(
-        f"Bootstrapping jump host password for {username}@{host}:{port} "
-        f"(factory password -> JUMP_HOST_PASSWORD) ..."
-    )
-
+def _bootstrap_password_with_expect(
+    *,
+    host: str,
+    port: int,
+    username: str,
+    initial: str,
+    new: str,
+    timeout: int,
+) -> None:
     expect_script = r"""
 set timeout [expr {$env(JUMP_HOST_EXPECT_TIMEOUT)}]
 set initial $env(JUMP_HOST_INITIAL_PASSWORD)
@@ -475,12 +532,82 @@ expect {
         detail = (result.stderr or result.stdout or "").strip()
         raise SystemExit(
             "Jump host password bootstrap failed. "
-            f"Try connecting manually with:\n\n    {jump_host_ssh_command(service, server)}\n\n"
-            f"Factory password is the image default (usually {env_config.DEFAULT_JUMP_HOST_INITIAL_PASSWORD!r}); "
+            f"Try connecting manually with:\n\n    ssh -p {port} {username}@{host}\n\n"
+            f"Factory password is the image default "
+            f"(usually {env_config.DEFAULT_JUMP_HOST_INITIAL_PASSWORD!r}); "
             f"set JUMP_HOST_PASSWORD for the new password. "
             f"Details: {detail or 'expect exited non-zero'}"
         )
 
+
+def bootstrap_jump_host_password(
+    service: Service,
+    server: Node,
+    *,
+    initial_password: str | None = None,
+    new_password: str | None = None,
+    timeout: int = 60,
+) -> None:
+    """Clear NVIDIA Air's mandatory first-login password change on oob-mgmt-server.
+
+    Fresh oob-mgmt-server VMs ship with default user ``ubuntu`` / password
+    ``nvidia`` and refuse to run commands until the password is changed.
+    Pubkey auth still connects, but BatchMode SSH fails with
+    ``Password change required but no TTY available``.
+    """
+    ready, reason = jump_host_ssh_probe(service, server, timeout=15)
+    if ready:
+        print(f"Jump host {OOB_SERVER_NAME!r} already accepts non-interactive SSH.")
+        return
+    if reason != "password_expired" and reason != "not_reachable":
+        print(
+            f"Jump host SSH probe: {reason!r} — waiting for SSH to come up before "
+            "bootstrapping the password ..."
+        )
+        _wait_for_jump_host_ssh(service, server, timeout=120)
+        ready, reason = jump_host_ssh_probe(service, server, timeout=15)
+        if ready:
+            print(f"Jump host {OOB_SERVER_NAME!r} already accepts non-interactive SSH.")
+            return
+
+    if reason not in {"password_expired", "not_reachable"}:
+        raise SystemExit(
+            f"Jump host SSH is up but non-interactive login failed: {reason!r}\n"
+            f"Connect manually:\n\n    {jump_host_ssh_command(service, server)}\n"
+        )
+
+    host, port, username = jump_host_ssh_target(service, server)
+    initial = initial_password or env_config.jump_host_initial_password(
+        image_default=getattr(server.image, "default_password", None)
+    )
+    new = new_password or env_config.jump_host_password()
+
+    print(
+        f"Bootstrapping jump host password for {username}@{host}:{port} "
+        f"(factory password -> JUMP_HOST_PASSWORD) ..."
+    )
+
+    if shutil.which("expect") is not None:
+        _bootstrap_password_with_expect(
+            host=host,
+            port=port,
+            username=username,
+            initial=initial,
+            new=new,
+            timeout=timeout,
+        )
+    else:
+        print("  `expect` not installed; using a PTY to change the password ...")
+        _bootstrap_password_with_pty(
+            host=host,
+            port=port,
+            username=username,
+            initial=initial,
+            new=new,
+            timeout=timeout,
+        )
+
+    time.sleep(2)
     ready, reason = jump_host_ssh_probe(service, server, timeout=15)
     if not ready:
         raise SystemExit(
