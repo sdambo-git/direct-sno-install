@@ -1,4 +1,4 @@
-# OpenShift SNO on NVIDIA DSX Air
+# OpenShift SNO / OCP on NVIDIA DSX Air
 
 Standard Single Node OpenShift install using an **Assisted Installer**
 discovery ISO on NVIDIA DSX / NVIDIA Air — no seed image, no Lifecycle
