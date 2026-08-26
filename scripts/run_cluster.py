@@ -235,6 +235,13 @@ def action_jump_host(ctx: Ctx) -> None:
     _run("04_create_jump_host_service.py", ctx=ctx)
 
 
+def action_netperf(ctx: Ctx) -> None:
+    args = ["netperf_nodes.py"]
+    if _confirm("Keep the dsxair-netperf namespace after the test (--keep)?", ctx=ctx, default=False):
+        args.append("--keep")
+    _run(*args, ctx=ctx)
+
+
 @dataclass
 class Step:
     num: int
@@ -287,6 +294,7 @@ def _print_menu(status: dict[int, str]) -> None:
         print(f" {step.num:>2}  [{mark}]  {step.title}")
     print("  r        Recover a node back to discovery (ad hoc)")
     print("  j        Print jump-host SSH command (ad hoc)")
+    print("  p        iperf3 between pods on different nodes (ad hoc)")
     print("\n([x]=ran  [-]=skipped/declined  [!]=failed)")
     print()
 
@@ -315,7 +323,7 @@ def interactive_loop(ctx: Ctx) -> None:
         try:
             choice = input(
                 "Step number, range (e.g. 3-6), 'all' for all remaining, "
-                "'r' to recover a node, 'j' for jump host, 'q' to quit: "
+                "'r' to recover a node, 'j' for jump host, 'p' for netperf, 'q' to quit: "
             ).strip().lower()
         except EOFError:
             print()
@@ -335,6 +343,12 @@ def interactive_loop(ctx: Ctx) -> None:
                 action_jump_host(ctx)
             except StepFailed as exc:
                 print(f"Jump host action failed: {exc}")
+            continue
+        if choice == "p":
+            try:
+                action_netperf(ctx)
+            except StepFailed as exc:
+                print(f"Netperf failed: {exc}")
             continue
         if choice == "all":
             remaining = [s.num for s in STEPS if status.get(s.num) != "x"]

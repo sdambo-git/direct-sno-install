@@ -79,6 +79,7 @@ Uses `topology-multinode.json` and `CLUSTER_NAME=ocp-cluster` by default.
 | `02_attach_discovery_iso.py` | Redo discovery after Abort/Reset in the console | Re-attaches discovery ISO. Older pattern — prefer `09_recover_to_discovery.py`. |
 | `03_boot_to_disk.py` | Legacy | Discouraged; see README blank-disk pattern. |
 | `04_create_jump_host_service.py` | Any time after `01` | Idempotent SSH Service on `oob-mgmt-server` + first-login password bootstrap; prints `ssh` command. |
+| `netperf_nodes.py` | After the cluster is up and `oc get nodes` works | iperf3 pods on each Ready node; TCP full-mesh over the pod network. |
 | `bootstrap_jump_host.py` | Jump host SSH fails with expired password | Re-run password bootstrap only (also creates SSH service if missing). |
 | `09_recover_to_discovery.py` | Failed install / no bootable device | Rebuild blank disk + re-attach ISO. `--all` or repeated `--node`; `--reset-ai` for AI cluster reset. Do not run three separate recovers — each one shuts down the whole sim. |
 
