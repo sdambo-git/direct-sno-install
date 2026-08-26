@@ -33,7 +33,8 @@ not hardcode secrets in the repo.
 
 | Input | How to set |
 |---|---|
-| Air API key | `AIR_API_KEY` or `AIR_API_KEY_FILE` |
+| Air API key | `AIR_API_KEY` or `AIR_API_KEY_FILE` — NGC **Personal** key (your user) or **Service** key (org automation). Not OpenShift `kubeadmin`. |
+| Air NGC org | `AIR_NGC_ORG` (optional). Display name of the NGC org, e.g. `Ami_RH_NV_TECH_PRTNR`. Sent as `Nv-Ngc-Org`. |
 | Assisted Installer offline token | `AI_OFFLINETOKEN` or `AI_OFFLINETOKEN_FILE` |
 | Pull secret | `PULL_SECRET_PATH` (path to JSON file) |
 | SSH public key (OpenShift nodes) | `SSH_PUBLIC_KEY_PATH` (default `~/.ssh/id_ed25519.pub` or `id_rsa.pub`) — baked into the discovery ISO |

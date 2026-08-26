@@ -75,7 +75,32 @@ def resolve_secret(env_name: str, *, what: str) -> str:
 
 
 def air_api_key() -> str:
-    return resolve_secret("AIR_API_KEY", what="Air API key")
+    """NGC scoped API key (SAK) for DSX Air. Must start with ``nvapi-``.
+
+    Personal keys are tied to your user. Service keys are tied to the NGC org
+    (automation). Both must include the NVIDIA Air service. This is not the
+    OpenShift ``kubeadmin`` user.
+    """
+    value = resolve_secret("AIR_API_KEY", what="Air API key")
+    return value.strip().strip('"').strip("'")
+
+
+def air_api_url() -> str | None:
+    """Override the Air API host (default: public api.air-ngc.nvidia.com).
+
+    For a private Air instance, open https://<air-host>/api and copy the
+    server URL from the dropdown into AIR_API_URL. Do not use the OpenShift
+    apps domain (e.g. *.apps.ocp-cluster...). Public DSX Air is the SDK
+    default (api.air-ngc.nvidia.com); leave AIR_API_URL unset.
+    """
+    raw = os.environ.get("AIR_API_URL", "").strip()
+    return raw or None
+
+
+def air_ngc_org() -> str | None:
+    """Optional NGC org name sent as Nv-Ngc-Org (e.g. Ami_RH_NV_TECH_PRTNR)."""
+    raw = os.environ.get("AIR_NGC_ORG", "").strip()
+    return raw or None
 
 
 def ai_offlinetoken() -> str:

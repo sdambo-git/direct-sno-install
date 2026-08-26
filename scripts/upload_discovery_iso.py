@@ -29,7 +29,13 @@ IMAGE_NAME = env_config.DEFAULT_DISCOVERY_ISO_NAME
 
 
 def get_api() -> AirApi:
-    return AirApi.with_api_key(api_key=env_config.air_api_key())
+    kwargs: dict = {"api_key": env_config.air_api_key()}
+    if url := env_config.air_api_url():
+        kwargs["api_url"] = url
+    api = AirApi.with_api_key(**kwargs)
+    if org := env_config.air_ngc_org():
+        api.client.headers["Nv-Ngc-Org"] = org
+    return api
 
 
 def _find_image(api: AirApi, name: str):
