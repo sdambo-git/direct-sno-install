@@ -66,7 +66,7 @@ against this name unless you intend to wipe it.
 |-------------|---------|
 | Org | **Ami org** (`Ami_RH_NV_TECH_PRTNR`) — personal-org API keys will not see this sim |
 | API key | NGC Personal API Key with **NVIDIA Air** enabled; regenerate after role changes |
-| Kubeconfig | `.cache/kubeconfig.ocp-cluster` from the maintainer (gitignored) |
+| Kubeconfig | `.cache/kubeconfig.ocp-cluster` from the deployment (gitignored) |
 | Tools | `uv`, `oc` on PATH |
 | Do **not** run | `00`–`07`, `upload_discovery_iso.py`, `upload_blank_disk.py` |
 
@@ -81,7 +81,7 @@ export CLUSTER_PROFILE=multinode
 export AIR_API_KEY=...    # Ami org key
 
 mkdir -p .cache
-cp /path/from/maintainer/kubeconfig.ocp-cluster .cache/
+cp /path/from/deployment/kubeconfig.ocp-cluster .cache/
 ```
 
 Confirm the simulation appears in the Air UI under Ami's org before proceeding.
