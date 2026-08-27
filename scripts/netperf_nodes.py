@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -212,6 +213,23 @@ def _mbits(bps: float) -> str:
     return f"{bps / 1_000_000:.1f}"
 
 
+def _delete_namespace(oc: Path, env: dict[str, str], namespace: str) -> None:
+    """Drop the test namespace. Ignore Ctrl+C so cleanup is not SIGKILL'd."""
+    print(f"\nDeleting namespace {namespace}")
+    previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    try:
+        subprocess.run(
+            [str(oc), "delete", "namespace", namespace, "--wait=false"],
+            env=env,
+            text=True,
+            capture_output=True,
+            check=False,
+            start_new_session=True,
+        )
+    finally:
+        signal.signal(signal.SIGINT, previous)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--namespace", default=_DEFAULT_NS)
@@ -245,40 +263,48 @@ def main() -> None:
     print(f"Nodes: {', '.join(nodes)}")
     print(f"Creating iperf3 pods in namespace {args.namespace} (image {args.image})")
 
-    applied = subprocess.run(
-        [str(oc), "apply", "-f", "-"],
-        env=env,
-        input=_manifest(args.namespace, nodes, args.image),
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if applied.returncode != 0:
-        raise SystemExit((applied.stderr or applied.stdout or "").strip())
-    scc = _oc(
-        oc,
-        env,
-        "adm",
-        "policy",
-        "add-scc-to-user",
-        "anyuid",
-        "-z",
-        "default",
-        "-n",
-        args.namespace,
-        check=False,
-    )
-    if scc.returncode != 0:
-        print(f"  note: anyuid SCC not applied ({(scc.stderr or '').strip()})")
-
-    ips = _wait_pods(oc, env, args.namespace, nodes, args.timeout)
-    for node, ip in ips.items():
-        print(f"  {node}: {ip} ({_pod_name(node)})")
-
-    print(f"\nTCP iperf3 full mesh ({args.duration}s, -P {args.parallel}):\n")
-    print(f"{'src':<16} {'dst':<16} {'Mbits/s':>10}")
+    pair_count = len(nodes) * (len(nodes) - 1)
+    ns_applied = False
+    interrupted = False
     rows: list[tuple[str, str, float]] = []
     try:
+        applied = subprocess.run(
+            [str(oc), "apply", "-f", "-"],
+            env=env,
+            input=_manifest(args.namespace, nodes, args.image),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        if applied.returncode != 0:
+            raise SystemExit((applied.stderr or applied.stdout or "").strip())
+        ns_applied = True
+        scc = _oc(
+            oc,
+            env,
+            "adm",
+            "policy",
+            "add-scc-to-user",
+            "anyuid",
+            "-z",
+            "default",
+            "-n",
+            args.namespace,
+            check=False,
+        )
+        if scc.returncode != 0:
+            print(f"  note: anyuid SCC not applied ({(scc.stderr or '').strip()})")
+
+        ips = _wait_pods(oc, env, args.namespace, nodes, args.timeout)
+        for node, ip in ips.items():
+            print(f"  {node}: {ip} ({_pod_name(node)})")
+
+        eta = pair_count * args.duration
+        print(
+            f"\nTCP iperf3 full mesh ({args.duration}s, -P {args.parallel}, "
+            f"{pair_count} pairs, ~{eta}s). Ctrl+C skips remaining pairs.\n"
+        )
+        print(f"{'src':<16} {'dst':<16} {'Mbits/s':>10}")
         for src in nodes:
             for dst in nodes:
                 if src == dst:
@@ -294,21 +320,29 @@ def main() -> None:
                 )
                 rows.append((src, dst, bps))
                 print(f"{src:<16} {dst:<16} {_mbits(bps):>10}")
+    except KeyboardInterrupt:
+        interrupted = True
+        print(f"\nStopped by Ctrl+C ({len(rows)}/{pair_count} pairs done).")
     finally:
-        if not args.keep:
-            print(f"\nDeleting namespace {args.namespace}")
-            _oc(oc, env, "delete", "namespace", args.namespace, "--wait=false", check=False)
-        else:
-            print(f"\nKept namespace {args.namespace} (--keep)")
+        if ns_applied:
+            if not args.keep:
+                _delete_namespace(oc, env, args.namespace)
+            else:
+                print(f"\nKept namespace {args.namespace} (--keep)")
 
     if rows:
         avg = sum(r[2] for r in rows) / len(rows)
         print(f"\nAverage: {_mbits(avg)} Mbits/s across {len(rows)} pairs")
+    if interrupted:
+        raise SystemExit(130)
 
 
 if __name__ == "__main__":
     try:
         main()
+    except KeyboardInterrupt:
+        print("\nStopped by Ctrl+C.")
+        raise SystemExit(130) from None
     except SystemExit:
         raise
     except Exception as exc:  # noqa: BLE001

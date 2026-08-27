@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import subprocess
 import sys
 import time
@@ -63,6 +64,9 @@ def _confirm(prompt: str, *, ctx: Ctx, default: bool) -> bool:
         answer = input(f"{prompt} [{suffix}] ").strip().lower()
     except EOFError:
         return default
+    except KeyboardInterrupt:
+        print()
+        raise
     if not answer:
         return default
     return answer in ("y", "yes")
@@ -84,9 +88,28 @@ def _run(*args: str, ctx: Ctx) -> None:
     if ctx.dry_run:
         print("(dry-run: not executed)")
         return
-    result = subprocess.run([sys.executable, str(script), *args[1:]], cwd=SCRIPTS_DIR)
-    if result.returncode != 0:
-        raise StepFailed(f"{args[0]} exited with status {result.returncode}")
+    # Popen+wait (not subprocess.run): run() SIGKILLs the child on Ctrl+C, which
+    # aborts cleanup (e.g. netperf deleting dsxair-netperf) and dumps a traceback.
+    proc = subprocess.Popen([sys.executable, str(script), *args[1:]], cwd=SCRIPTS_DIR)
+    try:
+        retcode = proc.wait()
+    except KeyboardInterrupt:
+        print("\nCtrl+C — waiting for cleanup (Ctrl+C again to kill)...")
+        try:
+            retcode = proc.wait()
+        except KeyboardInterrupt:
+            proc.terminate()
+            try:
+                retcode = proc.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                retcode = proc.wait()
+            raise StepFailed(f"{args[0]} killed") from None
+    if retcode in (130, -signal.SIGINT):
+        print(f"{args[0]} stopped.")
+        return
+    if retcode != 0:
+        raise StepFailed(f"{args[0]} exited with status {retcode}")
 
 
 def _update_topology_cdrom(iso_name: str) -> list[str]:
@@ -236,8 +259,18 @@ def action_jump_host(ctx: Ctx) -> None:
 
 
 def action_netperf(ctx: Ctx) -> None:
+    print("Ctrl+C skips remaining pairs, deletes the namespace (unless --keep), and returns to the menu.")
     args = ["netperf_nodes.py"]
-    if _confirm("Keep the dsxair-netperf namespace after the test (--keep)?", ctx=ctx, default=False):
+    try:
+        keep = _confirm(
+            "Keep the dsxair-netperf namespace after the test (--keep)?",
+            ctx=ctx,
+            default=False,
+        )
+    except KeyboardInterrupt:
+        print("Netperf cancelled.")
+        return
+    if keep:
         args.append("--keep")
     _run(*args, ctx=ctx)
 
@@ -294,7 +327,7 @@ def _print_menu(status: dict[int, str]) -> None:
         print(f" {step.num:>2}  [{mark}]  {step.title}")
     print("  r        Recover a node back to discovery (ad hoc)")
     print("  j        Print jump-host SSH command (ad hoc)")
-    print("  p        iperf3 between pods on different nodes (ad hoc)")
+    print("  p        iperf3 between pods on different nodes (Ctrl+C to stop)")
     print("\n([x]=ran  [-]=skipped/declined  [!]=failed)")
     print()
 
@@ -328,6 +361,9 @@ def interactive_loop(ctx: Ctx) -> None:
         except EOFError:
             print()
             return
+        except KeyboardInterrupt:
+            print("\nUse 'q' to quit.")
+            continue
         if choice in ("q", "quit", "exit"):
             return
         if choice in ("", "l", "list"):
