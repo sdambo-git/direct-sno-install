@@ -14,7 +14,7 @@
                 "os": "blank-100g",
                 "storage_pci": null,
                 "pxehost": false,
-                "cdrom": "dsxair-discovery-1786747748",
+                "cdrom": "dsxair-discovery-1787668865",
                 "boot": [
                     "hd",
                     "cdrom"
@@ -34,7 +34,7 @@
                 "os": "blank-100g",
                 "storage_pci": null,
                 "pxehost": false,
-                "cdrom": "dsxair-discovery-1786747748",
+                "cdrom": "dsxair-discovery-1787668865",
                 "boot": [
                     "hd",
                     "cdrom"
@@ -54,7 +54,7 @@
                 "os": "blank-100g",
                 "storage_pci": null,
                 "pxehost": false,
-                "cdrom": "dsxair-discovery-1786747748",
+                "cdrom": "dsxair-discovery-1787668865",
                 "boot": [
                     "hd",
                     "cdrom"
