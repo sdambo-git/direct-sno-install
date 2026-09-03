@@ -1,8 +1,8 @@
 simulation:
-  name: dsx-lab
+  name: dsx-ocp
 cluster:
   name: ocp
-  version: "4.19"
+  version: "4.22"
   control_plane: { count: 3, cpu: 16, memory_mb: 65536, disk_gb: 100 }
   workers: { count: 2, cpu: 8, memory_mb: 32768, disk_gb: 100 }
 auth:
