@@ -16,6 +16,11 @@ T = TypeVar("T")
 # VIPs are set (step 9). insufficient is NTP/validation — not installable yet.
 INSTALLABLE_HOST_STATUSES = frozenset({"known", "ready", "pending-for-input"})
 
+# Assisted Installer only allows host_role changes in these statuses.
+ROLE_SETTABLE_HOST_STATUSES = frozenset(
+    {"discovering", "known", "disconnected", "insufficient", "pending-for-input"}
+)
+
 
 def get_client(*, quiet: bool = True) -> AssistedClient:
     return AssistedClient(
@@ -132,6 +137,63 @@ def host_for_topology_node(ai: AssistedClient, topology_name: str) -> dict | Non
         if _host_matches_topology(host, topology_name):
             return host
     return None
+
+
+def assign_topology_host_roles(ai: AssistedClient, *, dry_run: bool = False) -> None:
+    """Set master/worker from topology names. Skip hosts that already match
+    or that are past the AI states where role can still be changed.
+    """
+    mapping = hosts_by_topology_name(ai)
+    topo_names = env_config.topology_node_names()
+    if len(mapping) < len(topo_names):
+        missing = [name for name in topo_names if name not in mapping]
+        raise SystemExit(
+            f"Could not match all topology nodes to AI hosts. Missing: {missing}. "
+            f"Matched: {list(mapping.keys())}. "
+            "Check host discovery or set requested_hostname in Assisted Installer."
+        )
+
+    blocked: list[str] = []
+    updated = 0
+    skipped = 0
+    for topo_name, host in mapping.items():
+        role = env_config.host_role_for_topology_node(topo_name)
+        host_id = str(host.get("id") or "")
+        ai_hostname = host.get("requested_hostname") or host_id
+        current_role = host.get("role")
+        status = host.get("status") or ""
+        print(
+            f"  {topo_name!r} -> AI host {ai_hostname!r} ({host_id or 'no-id'}): "
+            f"status={status!r} role {current_role!r} -> {role!r}"
+        )
+        if current_role == role:
+            skipped += 1
+            continue
+        if status not in ROLE_SETTABLE_HOST_STATUSES:
+            blocked.append(
+                f"{ai_hostname} status={status!r} (wanted role {role!r}, have {current_role!r})"
+            )
+            continue
+        if dry_run:
+            continue
+        target = host_id or ai_hostname
+        ai.update_host(target, {"role": role})
+        updated += 1
+
+    if blocked:
+        raise SystemExit(
+            "Cannot change host role after install. "
+            + "; ".join(blocked)
+            + ". Delete the Assisted Installer cluster (step 1) or recover with "
+            "--reset-ai, then rediscover hosts."
+        )
+    if dry_run:
+        print("Dry run only; no changes applied.")
+        return
+    if updated:
+        print(f"Host roles updated ({updated} changed, {skipped} already correct).")
+    else:
+        print(f"Host roles already match topology ({skipped} host(s)); nothing to update.")
 
 
 def hosts_by_topology_name(ai: AssistedClient) -> dict[str, dict]:

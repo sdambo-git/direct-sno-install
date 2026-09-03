@@ -23,10 +23,10 @@ from pathlib import Path
 from air_common import boot_node_to_disk, default_node_name, get_api, get_simulation
 from assisted_common import (
     INSTALLABLE_HOST_STATUSES,
+    assign_topology_host_roles,
     cluster_hosts,
     get_client,
     host_oob_ipv4s,
-    hosts_by_topology_name,
 )
 from assisted_poll import (
     PollSnapshot,
@@ -98,15 +98,7 @@ def _configure_cluster(ai, name: str) -> None:
 def _assign_host_roles(ai) -> None:
     if not env_config.is_multinode():
         return
-    mapping = hosts_by_topology_name(ai)
-    for topo_name, host in mapping.items():
-        role = env_config.host_role_for_topology_node(topo_name)
-        ai_hostname = host.get("requested_hostname") or host.get("id")
-        current_role = host.get("role")
-        if current_role == role:
-            continue
-        print(f"Assigning role {role!r} to host {ai_hostname!r} (topology {topo_name!r}) ...")
-        ai.update_host(ai_hostname, {"role": role})
+    assign_topology_host_roles(ai)
 
 
 def _wait_for_installable_hosts(ai, name: str, *, timeout: int = 900) -> list[dict]:
