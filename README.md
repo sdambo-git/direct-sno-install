@@ -153,6 +153,7 @@ Ready.
 | `oc` not found | Install the OpenShift CLI |
 | Jump host not ready | `uv run dsx-air start` |
 | Sim not visible in Air UI | Wrong org or API key — confirm Ami org key, not personal |
+| expect is not on PATH (needed for jump-host password bootstrap). | run `sudo dnf install expect` |
 
 ## Sim protection
 
