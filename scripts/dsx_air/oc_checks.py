@@ -40,6 +40,7 @@ def run_oc(
     *,
     kubeconfig: str | None = None,
     timeout: float = 60.0,
+    stdin: str | None = None,
 ) -> OcResult:
     cmd = [oc_path()]
     if kubeconfig:
@@ -48,6 +49,7 @@ def run_oc(
     try:
         proc = subprocess.run(
             cmd,
+            input=stdin,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -110,6 +112,16 @@ def clusterversion(*, kubeconfig: str) -> tuple[str, str]:
     if fallback.ok:
         return fallback.stdout.strip().splitlines()[1] if "\n" in fallback.stdout else "unknown", ""
     return "unknown", result.reason or fallback.reason
+
+
+def raw_version(*, kubeconfig: str, timeout: float = 45.0) -> OcResult:
+    """Same check ``oc`` uses: GET /version through the kubeconfig server URL."""
+    seconds = max(1, int(timeout))
+    return run_oc(
+        ["get", "--raw", "/version", f"--request-timeout={seconds}s"],
+        kubeconfig=kubeconfig,
+        timeout=float(seconds + 5),
+    )
 
 
 def machineconfig_pools(*, kubeconfig: str) -> tuple[str, str]:

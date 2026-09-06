@@ -8,7 +8,7 @@ from pathlib import Path
 
 from dsx_air._bootstrap import ensure_scripts_path, repo_root
 from dsx_air.pipeline import cache_dir, run_script
-from dsx_air.spec import apply_to_environ, load_spec, preflight_auth
+from dsx_air.spec import apply_to_environ, load_spec, preflight_auth, remember_spec
 from dsx_air.topology import write_manifest
 
 ensure_scripts_path()
@@ -68,6 +68,7 @@ def run_deploy(
     topo_path = cache_dir() / spec.simulation.name / "topology.json"
     write_manifest(spec, topo_path, cdrom=cdrom)
     apply_to_environ(spec, topology_path=topo_path)
+    remember_spec(spec_path)
 
     print(
         f"Deploy {spec.simulation.name!r} / cluster {spec.cluster.name!r} "
@@ -116,7 +117,8 @@ def run_deploy(
         if cluster_state == "installed":
             kube = repo_root() / ".cache" / f"kubeconfig.{spec.cluster.name}"
             print(f"Cluster already installed. Kubeconfig: {kube}")
-            print("Next: uv run dsx-air console --spec", spec_path)
+            print("Next: uv run dsx-air tunnel")
+            print("      uv run dsx-air console")
             return 0
 
     min_hosts = str(expected)
@@ -133,5 +135,6 @@ def run_deploy(
 
     kube = repo_root() / ".cache" / f"kubeconfig.{spec.cluster.name}"
     print(f"\nDeploy finished. Kubeconfig: {kube}")
-    print("Next: uv run dsx-air console --spec", spec_path)
+    print("Next: uv run dsx-air tunnel")
+    print("      uv run dsx-air console")
     return 0

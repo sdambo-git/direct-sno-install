@@ -26,6 +26,12 @@ def run_tunnel(*, check: bool = False, spec_path: Path | None = None) -> int:
         jump_target = air_status.jump_target_from_info(jump)
     except (AirLookupError, SystemExit) as exc:
         print(exc, file=sys.stderr)
+        if spec_path is None:
+            print(
+                "Pass the same --spec you used for deploy, for example:\n"
+                "  uv run dsx-air tunnel --spec examples/ha-3cp-2w.yaml",
+                file=sys.stderr,
+            )
         return 1
 
     if jump_target is None:
@@ -45,7 +51,7 @@ def run_tunnel(*, check: bool = False, spec_path: Path | None = None) -> int:
 
     reachable, reason = tunnel.api_reachable()
     if reachable:
-        print("API probe: ok (https://127.0.0.1:6443/version)")
+        print("API probe: ok (oc get --raw /version)")
         return 0
 
     print(f"API probe: failed ({reason})")

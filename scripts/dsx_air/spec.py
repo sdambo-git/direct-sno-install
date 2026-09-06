@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any, Self
 
@@ -111,9 +112,40 @@ def load_spec(path: Path) -> LabSpec:
     return LabSpec.model_validate(data)
 
 
+def last_spec_path() -> Path | None:
+    """Absolute path of the spec last used by deploy or `--spec`."""
+    from dsx_air.pipeline import cache_dir
+
+    marker = cache_dir() / "last-spec"
+    if not marker.is_file():
+        return None
+    raw = marker.read_text().strip()
+    if not raw:
+        return None
+    path = Path(raw)
+    return path if path.is_file() else None
+
+
+def remember_spec(path: Path) -> None:
+    from dsx_air.pipeline import cache_dir
+
+    marker = cache_dir() / "last-spec"
+    marker.write_text(str(path.resolve()) + "\n")
+
+
 def activate_spec(spec_path: Path | None) -> LabSpec | None:
-    """Load a lab spec into env (CLUSTER_NAME, SIMULATION_NAME, auth files)."""
+    """Load a lab spec into env (CLUSTER_NAME, SIMULATION_NAME, auth files).
+
+    When ``spec_path`` is omitted, reuse ``.cache/last-spec`` from the last
+    ``deploy`` / ``--spec``. If that is missing and exactly one generated
+    lab exists under ``.cache/<sim>/topology.json``, use that simulation.
+    """
+    implicit = spec_path is None
     if spec_path is None:
+        spec_path = last_spec_path()
+    if spec_path is None:
+        if implicit:
+            _activate_single_cached_lab()
         return None
     from dsx_air.pipeline import cache_dir
 
@@ -121,7 +153,39 @@ def activate_spec(spec_path: Path | None) -> LabSpec | None:
     preflight_auth(spec)
     topo = cache_dir() / spec.simulation.name / "topology.json"
     apply_to_environ(spec, topology_path=topo if topo.is_file() else None)
+    if implicit:
+        print(
+            f"Using last spec {spec_path} "
+            f"(simulation {spec.simulation.name}, cluster {spec.cluster.name})",
+            file=sys.stderr,
+        )
+    else:
+        remember_spec(spec_path)
     return spec
+
+
+def _activate_single_cached_lab() -> bool:
+    """If exactly one ``.cache/<sim>/topology.json`` exists, export its name."""
+    from dsx_air.pipeline import cache_dir
+
+    found = sorted(p for p in cache_dir().glob("*/topology.json") if p.is_file())
+    if len(found) != 1:
+        return False
+    topo = found[0]
+    try:
+        name = json.loads(topo.read_text()).get("name")
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not name:
+        return False
+    os.environ["SIMULATION_NAME"] = str(name)
+    os.environ["TOPOLOGY_PATH"] = str(topo)
+    print(
+        f"Using cached simulation {name!r} ({topo.parent.name}/topology.json). "
+        "Pass --spec to choose a lab explicitly.",
+        file=sys.stderr,
+    )
+    return True
 
 
 def apply_to_environ(spec: LabSpec, *, topology_path: Path | None = None) -> None:

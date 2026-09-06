@@ -1,5 +1,5 @@
 simulation:
-  name: dsx-ocp
+  name: dsx-ocp-shahar
 cluster:
   name: ocp
   version: "4.22"

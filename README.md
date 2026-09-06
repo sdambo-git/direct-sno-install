@@ -26,13 +26,29 @@ Host discovery waits `max(20, 8 × host count)` minutes (40m for 3+2); override 
 ```bash
 uv sync
 uv run dsx-air deploy --spec examples/ha-3cp-2w.yaml
-uv run dsx-air console --spec examples/ha-3cp-2w.yaml
+uv run dsx-air tunnel
+uv run dsx-air console
+uv run dsx-air workload --follow
 ```
+
+`deploy` remembers the spec in `.cache/last-spec`, so `tunnel` / `start` /
+`status` / `console` without `--spec` use that simulation (not the shared
+`ocp-cluster` lab). Pass `--spec` anytime to select a different lab.
 
 `console` starts SOCKS through the jump host and launches host Chromium/Chrome.
 Chrome SOCKS5 resolves names **on the jump host**, so `start`/`console` write
 API/Console entries into jump-host `/etc/hosts` (not the laptop). `--print-only`
 prints commands without launching.
+
+With 2+ Ready dedicated workers (not control-plane), `workload` starts a **ring**
+of traffic: 2 workers → both directions; 3 workers → 0→1, 1→2, 2→0.
+
+```bash
+uv run dsx-air workload                      # iperf3, stream logs when Ready
+uv run dsx-air workload --no-follow          # start only
+uv run dsx-air workload --kind web --interval 2
+uv run dsx-air workload --stop
+```
 
 Destroy (TTY prompt; `--force` for scripts):
 
@@ -134,6 +150,7 @@ Ready.
 | `tunnel --check` | No | Probe `https://127.0.0.1:6443/version` |
 | `cluster` | No | `oc get nodes`, clusterversion, MCPs |
 | `operators` | No | NFD / NMState / SR-IOV CSVs + pod summary |
+| `workload` | Yes | iperf3 or HTTP ring between Ready workers |
 | `demo` | No | Compact status + cluster + operators |
 
 ## What success looks like
@@ -148,8 +165,10 @@ Ready.
 | Symptom | Fix |
 |---------|-----|
 | 403 on `upload_discovery_iso.py` | Wrong workflow — use this guide, not the README install path |
-| `tunnel` exits 1 | Pass `--spec examples/ha-3cp-2w.yaml`. Key is `~/.config/dsx-air/air-api-key` (or `AIR_API_KEY`). The old "Set AIR_API_KEY" line also meant jump host not ready. |
+| `tunnel` looks up `ocp-cluster` | Pass `--spec examples/ha-3cp-2w.yaml` (same file as deploy). After a new deploy, `tunnel` uses `.cache/last-spec` automatically. |
 | API unreachable / connection refused | Start the tunnel in Terminal 2; confirm sim is ACTIVE |
+| `operators` / `workload` TLS handshake timed out | Do not use a raw GET to 127.0.0.1. `dsx-air` now calls `oc get --raw /version` with the same kubeconfig as `oc` (`api.<cluster>.<domain>` in /etc/hosts). |
+| ImagePullBackOff on `workload` | Default image is `registry.redhat.io/ubi9/ubi` (cluster pull secret). Re-run `uv run dsx-air workload --replace`. Override with `DSX_WORKLOAD_IMAGE`. |
 | `oc` not found | Install the OpenShift CLI |
 | Jump host not ready | `uv run dsx-air start` |
 | Sim not visible in Air UI | Wrong org or API key — confirm Ami org key, not personal |

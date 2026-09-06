@@ -16,9 +16,9 @@ def _render_cluster_sections(
 ) -> None:
     if not kubeconfig_path:
         report.section("Cluster")
-        report.kv("status", "skipped (no tunneled kubeconfig)")
+        report.kv("status", "skipped (API not reachable)")
         report.section("Operators")
-        report.kv("status", "skipped (no tunneled kubeconfig)")
+        report.kv("status", "skipped (API not reachable)")
         return
 
     ok, fields, reason = oc_checks.cluster_summary(kubeconfig=kubeconfig_path)
@@ -105,23 +105,17 @@ def run_status(*, compact: bool = False, spec_path: Path | None = None) -> int:
             or "Jump host not ready. Pass --spec for this lab and run dsx-air start."
         )
 
-    reachable, reach_reason = tunnel.api_reachable()
+    path, reach_reason = kubeconfig.require_api(cluster_name=profile["cluster_name"])
+    reachable = path is not None
     report.section("API reachable")
-    report.kv("via_tunnel", reachable and "yes" or f"no ({reach_reason})")
+    report.kv("via_oc", "yes" if reachable else f"no ({reach_reason})")
     if not reachable:
         report.warn(
-            "Run the tunnel command in another terminal, then re-run status or demo"
+            "oc get --raw /version failed. Keep ssh -L running; if oc works "
+            "with /etc/hosts, dsx-air now uses that kubeconfig."
         )
 
-    kubeconfig_path: str | None = None
-    if reachable:
-        try:
-            path = kubeconfig.ensure_tunneled_kubeconfig(
-                cluster_name=profile["cluster_name"]
-            )
-            kubeconfig_path = str(path)
-        except (FileNotFoundError, ValueError) as exc:
-            report.warn(str(exc))
+    kubeconfig_path: str | None = str(path) if path is not None else None
 
     if compact and kubeconfig_path:
         ok, _, reason = oc_checks.cluster_summary(kubeconfig=kubeconfig_path)

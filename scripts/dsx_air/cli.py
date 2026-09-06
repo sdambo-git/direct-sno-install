@@ -8,7 +8,7 @@ from typing import Optional
 import typer
 
 from dsx_air._bootstrap import ensure_scripts_path, repo_root
-from dsx_air.commands import cluster, console, demo, deploy, destroy, operators, recover, start, status, tunnel_cmd
+from dsx_air.commands import cluster, console, demo, deploy, destroy, operators, recover, start, status, tunnel_cmd, workload
 
 app = typer.Typer(
     name="dsx-air",
@@ -121,15 +121,47 @@ def tunnel_app(
 
 
 @app.command("cluster")
-def cluster_cmd() -> None:
+def cluster_cmd(
+    spec: Optional[Path] = typer.Option(None, "--spec", exists=True, readable=True),
+) -> None:
     """oc get nodes, clusterversion, machineconfigpool."""
-    _exit(cluster.run_cluster())
+    _exit(cluster.run_cluster(spec_path=spec))
 
 
 @app.command("operators")
-def operators_cmd() -> None:
+def operators_cmd(
+    spec: Optional[Path] = typer.Option(None, "--spec", exists=True, readable=True),
+) -> None:
     """Operator CSV and pod summary."""
-    _exit(operators.run_operators())
+    _exit(operators.run_operators(spec_path=spec))
+
+
+@app.command("workload")
+def workload_cmd(
+    spec: Optional[Path] = typer.Option(None, "--spec", exists=True, readable=True),
+    kind: str = typer.Option("iperf", "--kind", help="iperf (TCP ring) or web (HTTP ring)."),
+    interval: int = typer.Option(5, "--interval", help="Seconds between bandwidth or HTTP reports."),
+    duration: int = typer.Option(
+        0,
+        "--duration",
+        help="iperf3 -t seconds; 0 means run until --stop.",
+    ),
+    follow: bool = typer.Option(True, "--follow/--no-follow", help="Stream client logs after pods are Ready."),
+    stop: bool = typer.Option(False, "--stop", help="Delete namespace dsx-air-workload."),
+    replace: bool = typer.Option(False, "--replace", help="Delete the namespace before creating pods."),
+) -> None:
+    """Worker-to-worker traffic sized to the number of Ready workers.Negative Tests"""
+    _exit(
+        workload.run_workload(
+            spec_path=spec,
+            kind=kind,
+            interval=interval,
+            duration=duration,
+            follow=follow,
+            stop=stop,
+            replace=replace,
+        )
+    )
 
 
 def _run(argv: list[str] | None = None) -> int:

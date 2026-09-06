@@ -16,7 +16,7 @@ from dsx_air.topology import node_names, render_manifest  # noqa: E402
 class SpecTests(unittest.TestCase):
     def test_example_yaml_loads(self) -> None:
         spec = load_spec(ROOT / "examples" / "ha-3cp-2w.yaml")
-        self.assertEqual(spec.simulation.name, "dsx-lab")
+        self.assertEqual(spec.simulation.name, "dsx-ocp-shahar")
         self.assertEqual(spec.cluster.name, "ocp")
         self.assertEqual(spec.cluster.control_plane.count, 3)
         self.assertEqual(spec.cluster.workers.count, 2)
@@ -71,9 +71,9 @@ class EnvironFromSpecTests(unittest.TestCase):
         try:
             apply_to_environ(spec)
             self.assertEqual(os.environ["CLUSTER_NAME"], "ocp")
-            self.assertEqual(os.environ["SIMULATION_NAME"], "dsx-lab")
+            self.assertEqual(os.environ["SIMULATION_NAME"], "dsx-ocp-shahar")
             self.assertEqual(env_config.cluster_name(), "ocp")
-            self.assertEqual(env_config.simulation_name(), "dsx-lab")
+            self.assertEqual(env_config.simulation_name(), "dsx-ocp-shahar")
         finally:
             for key, value in old.items():
                 if value is None:
@@ -109,6 +109,71 @@ class AuthResolutionTests(unittest.TestCase):
                     os.environ.pop("AIR_API_KEY_FILE", None)
                 else:
                     os.environ["AIR_API_KEY_FILE"] = old_file
+
+
+class LastSpecTests(unittest.TestCase):
+    def test_activate_spec_none_uses_last_spec(self) -> None:
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        from dsx_air.spec import activate_spec, remember_spec
+        import env_config
+
+        keys = ("CLUSTER_NAME", "SIMULATION_NAME", "CLUSTER_PROFILE", "TOPOLOGY_PATH")
+        old = {k: os.environ.get(k) for k in keys}
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp)
+            spec_file = cache / "lab.yaml"
+            spec_file.write_text(
+                "simulation:\n  name: remembered-sim\n"
+                "cluster:\n  name: ocp\n  version: '4.22'\n"
+                "  control_plane: { count: 3 }\n"
+                "  workers: { count: 2 }\n"
+            )
+            try:
+                with patch("dsx_air.pipeline.cache_dir", return_value=cache):
+                    remember_spec(spec_file)
+                    spec = activate_spec(None)
+                self.assertIsNotNone(spec)
+                assert spec is not None
+                self.assertEqual(spec.simulation.name, "remembered-sim")
+                self.assertEqual(env_config.simulation_name(), "remembered-sim")
+                self.assertEqual(env_config.cluster_name(), "ocp")
+            finally:
+                for key, value in old.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+
+    def test_activate_spec_none_uses_single_cached_topology(self) -> None:
+        import os
+        import tempfile
+        from unittest.mock import patch
+
+        from dsx_air.spec import activate_spec
+        import env_config
+
+        keys = ("CLUSTER_NAME", "SIMULATION_NAME", "TOPOLOGY_PATH")
+        old = {k: os.environ.get(k) for k in keys}
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp)
+            topo = cache / "dsx-ocp-shahar" / "topology.json"
+            topo.parent.mkdir()
+            topo.write_text(json.dumps({"name": "dsx-ocp-shahar"}))
+            os.environ["SIMULATION_NAME"] = "ocp-cluster"
+            try:
+                with patch("dsx_air.pipeline.cache_dir", return_value=cache):
+                    self.assertIsNone(activate_spec(None))
+                self.assertEqual(env_config.simulation_name(), "dsx-ocp-shahar")
+                self.assertEqual(os.environ["TOPOLOGY_PATH"], str(topo))
+            finally:
+                for key, value in old.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
 
 
 if __name__ == "__main__":

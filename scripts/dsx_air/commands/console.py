@@ -102,9 +102,8 @@ def run_console(
     spec_path: Path | None = None,
     print_only: bool = False,
 ) -> int:
-    if spec_path is not None:
-        spec = activate_spec(spec_path)
-        assert spec is not None
+    spec = activate_spec(spec_path)
+    if spec is not None:
         cluster_name = spec.cluster.name
         sim_name = spec.simulation.name
     else:
