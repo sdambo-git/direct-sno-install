@@ -63,6 +63,7 @@ def run_status(*, compact: bool = False, spec_path: Path | None = None) -> int:
     report.kv("cluster_name", profile["cluster_name"])
     report.kv("simulation_name", profile["simulation_name"])
     report.kv("api_vip", profile["api_vip"])
+    report.kv("api_forward", profile["api_forward"])
 
     sim_state = ""
     jump_ssh = ""
@@ -93,7 +94,7 @@ def run_status(*, compact: bool = False, spec_path: Path | None = None) -> int:
         report.kv("status", f"skipped ({exc})")
         report.warn(str(exc))
 
-    api_vip = profile["api_vip"]
+    api_vip = profile["api_forward"]
     report.section("Tunnel command")
     if jump_target:
         tunnel_cmd = tunnel.build_tunnel_command(target=jump_target, api_vip=api_vip)

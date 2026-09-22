@@ -43,8 +43,14 @@ def run_tunnel(*, check: bool = False, spec_path: Path | None = None) -> int:
         )
         return 1
 
-    cmd = tunnel.build_tunnel_command(target=jump_target, api_vip=profile["api_vip"])
+    cmd = tunnel.build_tunnel_command(target=jump_target, api_vip=profile["api_forward"])
     print(cmd)
+    if profile["api_forward"] != profile["api_vip"]:
+        print(
+            f"# SNO: forwarding to node {profile['api_forward']} "
+            f"(not HA API VIP {profile['api_vip']})",
+            file=sys.stderr,
+        )
 
     if not check:
         return 0

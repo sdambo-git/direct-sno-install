@@ -122,10 +122,54 @@ def jump_target_from_info(jump: dict[str, str]) -> tunnel.JumpTarget | None:
 
 
 def profile_info() -> dict[str, str]:
+    forward = api_forward_ip()
     return {
         "profile": env_config.cluster_profile(),
         "cluster_name": env_config.cluster_name(),
         "simulation_name": env_config.simulation_name(),
         "api_vip": env_config.api_vip(),
+        "api_forward": forward,
+        "ingress_forward": ingress_forward_ip(api_forward=forward),
         "multinode": "yes" if env_config.is_multinode() else "no",
     }
+
+
+def _assisted_cluster_is_sno(cluster: dict) -> bool:
+    ha = str(cluster.get("high_availability_mode") or "").lower()
+    if ha in {"none", "null"}:
+        return True
+    if cluster.get("control_plane_count") == 1:
+        return True
+    if cluster.get("sno") is True:
+        return True
+    return False
+
+
+def api_forward_ip(*, cluster_name: str | None = None) -> str:
+    """IP the jump host should LocalForward for the kube-apiserver.
+
+    HA uses the Assisted API VIP (default 192.168.200.10). SNO has no VIP;
+    the API listens on the node's OOB address (often 192.168.200.2).
+    """
+    from assisted_common import get_client, primary_oob_ipv4
+    from assisted_poll import get_cluster_dict
+
+    name = cluster_name or env_config.cluster_name()
+    profile_sno = not env_config.is_multinode()
+    try:
+        ai = get_client(quiet=True)
+        cluster = get_cluster_dict(ai, name)
+        if profile_sno or _assisted_cluster_is_sno(cluster):
+            return primary_oob_ipv4(ai, name)
+    except (SystemExit, Exception):  # noqa: BLE001
+        if profile_sno:
+            raise
+    return env_config.api_vip()
+
+
+def ingress_forward_ip(*, api_forward: str | None = None) -> str:
+    """HA Ingress VIP, or the SNO node IP (API and apps share the node)."""
+    forward = api_forward if api_forward is not None else api_forward_ip()
+    if env_config.is_multinode() and forward == env_config.api_vip():
+        return env_config.ingress_vip()
+    return forward

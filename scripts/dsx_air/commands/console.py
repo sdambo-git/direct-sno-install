@@ -110,8 +110,8 @@ def run_console(
         cluster_name = env_config.cluster_name()
         sim_name = env_config.simulation_name()
     domain = env_config.base_dns_domain()
-    ingress_vip = env_config.ingress_vip()
-    api_vip = env_config.api_vip()
+    api_vip = air_status.api_forward_ip(cluster_name=cluster_name)
+    ingress_vip = air_status.ingress_forward_ip(api_forward=api_vip)
 
     url = _console_url(cluster_name, domain)
     try:
