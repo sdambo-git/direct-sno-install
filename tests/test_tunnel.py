@@ -109,5 +109,40 @@ class TunneledKubeconfigTests(unittest.TestCase):
             self.assertFalse(host_is_loopback("api.ocp.dsx.air.local"))
 
 
+class ApiForwardTests(unittest.TestCase):
+    def test_ha_uses_api_vip_without_assisted(self) -> None:
+        from dsx_air.air_status import api_forward_ip
+        import env_config
+
+        old = os.environ.get("CLUSTER_PROFILE")
+        try:
+            os.environ["CLUSTER_PROFILE"] = "multinode"
+            self.assertEqual(api_forward_ip(), env_config.DEFAULT_API_VIP)
+        finally:
+            if old is None:
+                os.environ.pop("CLUSTER_PROFILE", None)
+            else:
+                os.environ["CLUSTER_PROFILE"] = old
+
+    def test_sno_uses_cache_or_default_oob(self) -> None:
+        from dsx_air.air_status import api_forward_ip, remember_api_forward
+
+        old = {k: os.environ.get(k) for k in ("CLUSTER_PROFILE", "API_FORWARD")}
+        try:
+            os.environ["CLUSTER_PROFILE"] = "sno"
+            os.environ.pop("API_FORWARD", None)
+            with tempfile.TemporaryDirectory() as tmp:
+                with patch("dsx_air.air_status.repo_root", return_value=Path(tmp)):
+                    self.assertEqual(api_forward_ip(cluster_name="ocp"), "192.168.200.2")
+                    remember_api_forward("ocp", "192.168.200.7")
+                    self.assertEqual(api_forward_ip(cluster_name="ocp"), "192.168.200.7")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
-from dsx_air._bootstrap import ensure_scripts_path
+from dsx_air._bootstrap import ensure_scripts_path, repo_root
 
 ensure_scripts_path()
 
@@ -134,15 +136,14 @@ def profile_info() -> dict[str, str]:
     }
 
 
-def _assisted_cluster_is_sno(cluster: dict) -> bool:
-    ha = str(cluster.get("high_availability_mode") or "").lower()
-    if ha in {"none", "null"}:
-        return True
-    if cluster.get("control_plane_count") == 1:
-        return True
-    if cluster.get("sno") is True:
-        return True
-    return False
+def _api_forward_cache_path(cluster_name: str) -> Path:
+    return repo_root() / ".cache" / f"api-forward.{cluster_name}"
+
+
+def remember_api_forward(cluster_name: str, ip: str) -> None:
+    path = _api_forward_cache_path(cluster_name)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(ip.strip() + "\n")
 
 
 def api_forward_ip(*, cluster_name: str | None = None) -> str:
@@ -150,26 +151,27 @@ def api_forward_ip(*, cluster_name: str | None = None) -> str:
 
     HA uses the Assisted API VIP (default 192.168.200.10). SNO has no VIP;
     the API listens on the node's OOB address (often 192.168.200.2).
-    """
-    from assisted_common import get_client, primary_oob_ipv4
-    from assisted_poll import get_cluster_dict
 
+    Tunnel/console must not call Assisted Installer here: ailib token setup
+    can fail with HTTP 400 and abort the SSH command print.
+    """
+    if env_config.is_multinode():
+        return env_config.api_vip()
+    override = os.environ.get("API_FORWARD", "").strip()
+    if override:
+        return override
     name = cluster_name or env_config.cluster_name()
-    profile_sno = not env_config.is_multinode()
-    try:
-        ai = get_client(quiet=True)
-        cluster = get_cluster_dict(ai, name)
-        if profile_sno or _assisted_cluster_is_sno(cluster):
-            return primary_oob_ipv4(ai, name)
-    except (SystemExit, Exception):  # noqa: BLE001
-        if profile_sno:
-            raise
-    return env_config.api_vip()
+    cached = _api_forward_cache_path(name)
+    if cached.is_file():
+        ip = cached.read_text().strip().split()[0]
+        if ip:
+            return ip
+    return f"{env_config.OOB_IPV4_PREFIX}2"
 
 
 def ingress_forward_ip(*, api_forward: str | None = None) -> str:
     """HA Ingress VIP, or the SNO node IP (API and apps share the node)."""
     forward = api_forward if api_forward is not None else api_forward_ip()
-    if env_config.is_multinode() and forward == env_config.api_vip():
+    if env_config.is_multinode():
         return env_config.ingress_vip()
     return forward

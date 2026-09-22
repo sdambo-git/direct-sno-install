@@ -336,6 +336,8 @@ def main() -> None:
     cache = Path(__file__).resolve().parent.parent / ".cache"
     _download_credentials(ai, name, cache)
     verify_target = env_config.api_vip() if env_config.is_multinode() else oob_ip
+    if not env_config.is_multinode():
+        (cache / f"api-forward.{name}").write_text(oob_ip + "\n")
     print(
         f"\nNext: verify with kubeconfig at {cache / f'kubeconfig.{name}'}\n"
         f"Tunnel example (multinode): ssh -N -L 127.0.0.1:6443:{verify_target}:6443 "
