@@ -16,7 +16,9 @@ topology is generated into `.cache/`). See
 - Red Hat pull secret from
   `console.redhat.com/openshift/install/pull-secret`.
 - Red Hat Assisted Installer offline token from
-  `cloud.redhat.com/openshift/token` (for the SaaS API / `ailib`).
+  `console.redhat.com/openshift/token` (for the SaaS API / `ailib`).
+  Offline tokens expire (typically 30 days); a 400 from ailib means
+  paste a fresh token into `~/.config/dsx-air/ai-offlinetoken`.
 - An SSH public key to bake into the node.
 - NVIDIA Air / DSX Air API access (`nv-air-sdk`). Generate an NGC Personal
   API Key at `org.ngc.nvidia.com/setup/api-keys` with **NVIDIA Air** under

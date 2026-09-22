@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -14,9 +15,41 @@ from assisted_common import (  # noqa: E402
     is_unauthorized,
     topology_name_for_host,
 )
+from env_config import (  # noqa: E402
+    offline_token_exp,
+    offline_token_expired,
+    offlinetoken_help,
+)
 from assisted_poll import PollIssue, PollTracker  # noqa: E402
 import env_config  # noqa: E402
 import os  # noqa: E402
+
+
+def _jwt(exp: int) -> str:
+    from base64 import urlsafe_b64encode
+
+    def b64(obj: dict) -> str:
+        raw = json.dumps(obj, separators=(",", ":")).encode()
+        return urlsafe_b64encode(raw).decode().rstrip("=")
+
+    return f"{b64({'alg': 'none'})}.{b64({'typ': 'Offline', 'exp': exp})}.sig"
+
+
+class OfflineTokenTests(unittest.TestCase):
+    def test_exp_from_jwt(self) -> None:
+        self.assertEqual(offline_token_exp(_jwt(1790079495)), 1790079495)
+        self.assertIsNone(offline_token_exp("opaque-refresh-token"))
+
+    def test_expired_before_ailib(self) -> None:
+        token = _jwt(100)
+        self.assertTrue(offline_token_expired(token, now=200))
+        self.assertFalse(offline_token_expired(token, now=50))
+        self.assertFalse(offline_token_expired("not-a-jwt", now=10**12))
+
+    def test_help_names_console_and_file(self) -> None:
+        text = offlinetoken_help(dest=Path("/tmp/ai-offlinetoken"))
+        self.assertIn("console.redhat.com/openshift/token", text)
+        self.assertIn("/tmp/ai-offlinetoken", text)
 
 
 class UnauthorizedTests(unittest.TestCase):

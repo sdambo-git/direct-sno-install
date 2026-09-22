@@ -14,11 +14,17 @@ T = TypeVar("T")
 
 
 def get_client(*, quiet: bool = True) -> AssistedClient:
-    return AssistedClient(
-        url=env_config.SAAS_AI_URL,
-        offlinetoken=env_config.ai_offlinetoken(),
-        quiet=quiet,
-    )
+    token = env_config.require_ai_offlinetoken()
+    try:
+        return AssistedClient(
+            url=env_config.SAAS_AI_URL,
+            offlinetoken=token,
+            quiet=quiet,
+        )
+    except SystemExit as exc:
+        if exc.code in (0, None):
+            raise
+        raise SystemExit(env_config.offlinetoken_help()) from None
 
 
 def is_unauthorized(exc: BaseException) -> bool:

@@ -16,7 +16,7 @@ Put tokens in files (never in git). The example spec points at:
 | Spec key | Default path |
 |----------|----------------|
 | `auth.air_api_key_file` | `~/.config/dsx-air/air-api-key` |
-| `auth.ai_offlinetoken_file` | `~/.config/dsx-air/ai-offlinetoken` |
+| `auth.ai_offlinetoken_file` | `~/.config/dsx-air/ai-offlinetoken` (refresh at `console.redhat.com/openshift/token` if deploy hits HTTP 400) |
 | `auth.pull_secret_file` | `~/.config/dsx-air/pull-secret.json` |
 | `auth.ssh_public_key_file` | `~/.ssh/id_ed25519.pub` |
 

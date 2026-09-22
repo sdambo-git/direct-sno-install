@@ -9,6 +9,13 @@ from dsx_air.spec import LabSpec, NodePool
 DEFAULT_OS_IMAGE = "blank-100g"
 
 
+def os_image_for_disk_gb(disk_gb: int) -> str:
+    """Air OS image name for a topology node disk size."""
+    if disk_gb <= 100:
+        return DEFAULT_OS_IMAGE
+    return f"blank-{int(disk_gb)}g"
+
+
 def node_names(spec: LabSpec) -> list[str]:
     names = [f"ocp-cp-{i}" for i in range(spec.cluster.control_plane.count)]
     names.extend(f"ocp-worker-{i}" for i in range(spec.cluster.workers.count))
@@ -24,7 +31,7 @@ def _node_body(pool: NodePool, *, cdrom: str) -> dict:
         "cpu_mode": "host-passthrough",
         "cpu_options": [],
         "secureboot": False,
-        "os": DEFAULT_OS_IMAGE,
+        "os": os_image_for_disk_gb(pool.disk_gb),
         "storage_pci": None,
         "pxehost": False,
         "cdrom": cdrom,

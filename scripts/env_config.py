@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+from base64 import b64decode
 from pathlib import Path
 
 SAAS_AI_URL = "https://api.openshift.com"
@@ -18,6 +20,8 @@ DEFAULT_MULTINODE_CLUSTER_NAME = "ocp-cluster"
 DEFAULT_BASE_DNS_DOMAIN = "dsx.air.local"
 DEFAULT_DISCOVERY_ISO_NAME = "dsxair-discovery-iso"
 DEFAULT_BLANK_IMAGE_NAME = "blank-100g"
+DEFAULT_SNO_BLANK_IMAGE_NAME = "blank-300g"
+DEFAULT_SNO_BLANK_DISK_SIZE = "300G"
 DEFAULT_JUMP_HOST_INITIAL_PASSWORD = "nvidia"
 DEFAULT_JUMP_HOST_PASSWORD = "redhat"
 DEFAULT_API_VIP = "192.168.200.10"
@@ -76,6 +80,47 @@ def air_api_key() -> str:
 
 def ai_offlinetoken() -> str:
     return resolve_secret("AI_OFFLINETOKEN", what="Assisted Installer offline token")
+
+
+def offlinetoken_help(*, dest: Path | None = None) -> str:
+    path = dest or Path(
+        os.environ.get("AI_OFFLINETOKEN_FILE") or DEFAULT_AI_OFFLINETOKEN_FILE
+    ).expanduser()
+    return (
+        "Assisted Installer offline token is expired or rejected by Red Hat SSO "
+        "(HTTP 400 on refresh).\n"
+        "Get a new token at https://console.redhat.com/openshift/token "
+        f"and save it to {path} (or export AI_OFFLINETOKEN)."
+    )
+
+
+def offline_token_exp(token: str) -> int | None:
+    """Return JWT `exp` for a Red Hat offline token, or None if opaque/unreadable."""
+    parts = token.strip().split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        segment = parts[1]
+        segment += "=" * ((4 - len(segment) % 4) % 4)
+        payload = json.loads(b64decode(segment))
+    except (ValueError, json.JSONDecodeError):
+        return None
+    exp = payload.get("exp")
+    return int(exp) if isinstance(exp, (int, float)) else None
+
+
+def offline_token_expired(token: str, *, now: float | None = None) -> bool:
+    exp = offline_token_exp(token)
+    if exp is None:
+        return False
+    return exp <= (time.time() if now is None else now)
+
+
+def require_ai_offlinetoken(*, now: float | None = None) -> str:
+    token = ai_offlinetoken()
+    if offline_token_expired(token, now=now):
+        raise SystemExit(offlinetoken_help())
+    return token
 
 
 def pull_secret_path() -> Path:
@@ -283,12 +328,13 @@ def discovery_iso_path(*, must_exist: bool = False) -> Path:
     return path
 
 
-def blank_qcow2_path() -> Path:
+def blank_qcow2_path(*, image_name: str | None = None) -> Path:
     raw = os.environ.get("BLANK_QCOW2_PATH")
     if raw:
         return Path(raw).expanduser()
     cache = Path(__file__).resolve().parent.parent / ".cache"
-    return cache / "blank-100g.qcow2"
+    name = (image_name or DEFAULT_BLANK_IMAGE_NAME).strip() or DEFAULT_BLANK_IMAGE_NAME
+    return cache / f"{name}.qcow2"
 
 
 def _optional_secret(env_name: str, *, default: str, what: str) -> str:

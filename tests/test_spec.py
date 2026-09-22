@@ -56,7 +56,26 @@ class SpecTests(unittest.TestCase):
         self.assertEqual(worker["cpu"], 8)
         self.assertEqual(worker["memory"], 32768)
         self.assertEqual(worker["boot"], ["hd", "cdrom"])
+        self.assertEqual(worker["os"], "blank-100g")
         json.dumps(manifest)
+
+    def test_sno_large_disk_uses_blank_300g(self) -> None:
+        spec = LabSpec.model_validate(
+            {
+                "simulation": {"name": "dsx-sno-ibi"},
+                "cluster": {
+                    "name": "ocp",
+                    "version": "4.22",
+                    "control_plane": {"count": 1, "disk_gb": 300},
+                    "workers": {"count": 0},
+                },
+            }
+        )
+        self.assertEqual(spec.profile, "sno")
+        manifest = render_manifest(spec, cdrom="dsxair-discovery-test")
+        node = manifest["content"]["nodes"]["ocp-cp-0"]
+        self.assertEqual(node["storage"], 300)
+        self.assertEqual(node["os"], "blank-300g")
 
 
 class EnvironFromSpecTests(unittest.TestCase):

@@ -9,7 +9,7 @@ from pathlib import Path
 from dsx_air._bootstrap import ensure_scripts_path, repo_root
 from dsx_air.pipeline import cache_dir, run_script
 from dsx_air.spec import apply_to_environ, load_spec, preflight_auth, remember_spec
-from dsx_air.topology import write_manifest
+from dsx_air.topology import os_image_for_disk_gb, write_manifest
 
 ensure_scripts_path()
 
@@ -24,7 +24,7 @@ def _require_tools() -> None:
     if shutil.which("expect") is None:
         raise SystemExit("expect is not on PATH (needed for jump-host password bootstrap).")
     if shutil.which("qemu-img") is None:
-        raise SystemExit("qemu-img is not on PATH (needed for blank-100g upload).")
+        raise SystemExit("qemu-img is not on PATH (needed for blank disk upload).")
 
 
 def _probe_ai() -> None:
@@ -41,6 +41,26 @@ def _existing_sim(name: str):
 
 def _ocp_node_count(sim) -> int:
     return len(air_common.get_topology_nodes(sim))
+
+
+def _upload_blank_disks(spec) -> None:
+    sizes: set[int] = {spec.cluster.control_plane.disk_gb}
+    if spec.cluster.workers.count:
+        sizes.add(spec.cluster.workers.disk_gb)
+    for disk_gb in sorted(sizes):
+        image = os_image_for_disk_gb(disk_gb)
+        if image == env_config.DEFAULT_BLANK_IMAGE_NAME:
+            run_script("upload_blank_disk.py")
+        elif image == env_config.DEFAULT_SNO_BLANK_IMAGE_NAME:
+            run_script("upload_blank_disk_sno.py")
+        else:
+            run_script(
+                "upload_blank_disk.py",
+                "--name",
+                image,
+                "--size",
+                f"{int(disk_gb)}G",
+            )
 
 
 def run_deploy(
@@ -103,7 +123,7 @@ def run_deploy(
     if existing is None:
         run_script("00_create_discovery_iso.py", "--profile", spec.profile, "--force")
         run_script("upload_discovery_iso.py", "--name", cdrom)
-        run_script("upload_blank_disk.py")
+        _upload_blank_disks(spec)
         run_script("01_create_simulation.py")
     else:
         run_script("04_create_jump_host_service.py")
