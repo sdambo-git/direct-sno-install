@@ -31,6 +31,9 @@ uv run dsx-air console
 uv run dsx-air workload --follow
 ```
 
+SNO IBI seed attempt: `uv run dsx-air deploy --spec examples/sno.yaml --replace`
+(300G disk; Assisted extra MachineConfig carves ~100GiB root + 200GiB `/var/lib/containers` at first boot — below Red Hat’s 500GiB minimum). An already-installed `vda4` that fills the disk cannot be retrofitted; `--replace` is required.
+
 `deploy` remembers the spec in `.cache/last-spec`, so `tunnel` / `start` /
 `status` / `console` without `--spec` use that simulation (not the shared
 `ocp-cluster` lab). Pass `--spec` anytime to select a different lab.

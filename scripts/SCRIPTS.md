@@ -37,7 +37,7 @@ Package: `scripts/dsx_air/`. Walkthrough: [../DEMO.md](../DEMO.md).
 
 | # | Script | Run when | What it does |
 |---|---|---|---|
-| 0 | `00_create_discovery_iso.py` | Once (or after `--force`) | Creates Assisted Installer SaaS SNO cluster + infraenv via `ailib`, downloads the discovery ISO locally. Idempotent reuse; `--force` recreates. |
+| 0 | `00_create_discovery_iso.py` | Once (or after `--force`) | Creates Assisted Installer SaaS SNO cluster + infraenv via `ailib`, downloads the discovery ISO locally. Idempotent reuse; `--force` recreates. Uploads Day-0 `98-containers-part.yaml` when `CONTAINERS_PARTITION_GB` is set (SNO IBI spec). |
 | — | `upload_discovery_iso.py` | After step 0 | Uploads the local ISO to Air (name must match topology `cdrom`). Skips if present unless `--replace`. |
 | — | `upload_blank_disk.py` | Before first import | Sparse 100G qcow2 → Air `blank-100g`. `--name`/`--size` for other sizes. |
 | — | `upload_blank_disk_sno.py` | SNO disk | Sparse 300G qcow2 → Air `blank-300g`. |

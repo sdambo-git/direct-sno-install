@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from dsx_air.spec import LabSpec, load_spec  # noqa: E402
 from dsx_air.topology import node_names, render_manifest  # noqa: E402
+import yaml  # noqa: E402
 
 
 class SpecTests(unittest.TestCase):
@@ -77,6 +78,31 @@ class SpecTests(unittest.TestCase):
         self.assertEqual(node["storage"], 300)
         self.assertEqual(node["os"], "blank-300g")
 
+    def test_sno_yaml_enables_200g_containers_partition(self) -> None:
+        spec = load_spec(ROOT / "examples" / "sno.yaml")
+        self.assertEqual(spec.profile, "sno")
+        self.assertEqual(spec.cluster.control_plane.disk_gb, 300)
+        self.assertEqual(spec.cluster.containers_partition.gb, 200)
+        self.assertEqual(spec.cluster.containers_partition.start_gb, 100)
+        self.assertEqual(spec.cluster.containers_partition.device, "/dev/vda")
+
+    def test_containers_partition_must_fit_disk(self) -> None:
+        from pydantic import ValidationError
+
+        with self.assertRaises(ValidationError):
+            LabSpec.model_validate(
+                {
+                    "simulation": {"name": "tiny"},
+                    "cluster": {
+                        "name": "ocp",
+                        "version": "4.22",
+                        "control_plane": {"count": 1, "disk_gb": 200},
+                        "workers": {"count": 0},
+                        "containers_partition": {"gb": 200, "start_gb": 100},
+                    },
+                }
+            )
+
 
 class EnvironFromSpecTests(unittest.TestCase):
     def test_apply_to_environ_sets_sim_and_cluster(self) -> None:
@@ -93,6 +119,47 @@ class EnvironFromSpecTests(unittest.TestCase):
             self.assertEqual(os.environ["SIMULATION_NAME"], "dsx-ocp-shahar")
             self.assertEqual(env_config.cluster_name(), "ocp")
             self.assertEqual(env_config.simulation_name(), "dsx-ocp-shahar")
+        finally:
+            for key, value in old.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_apply_to_environ_sets_containers_partition(self) -> None:
+        import os
+
+        from dsx_air.spec import apply_to_environ
+        import env_config
+
+        spec = load_spec(ROOT / "examples" / "sno.yaml")
+        keys = (
+            "CLUSTER_NAME",
+            "CONTAINERS_PARTITION_GB",
+            "CONTAINERS_PARTITION_START_GB",
+            "CONTAINERS_PARTITION_DEVICE",
+        )
+        old = {k: os.environ.get(k) for k in keys}
+        try:
+            apply_to_environ(spec)
+            self.assertEqual(os.environ["CONTAINERS_PARTITION_GB"], "200")
+            self.assertEqual(env_config.containers_partition_gb(), 200)
+            self.assertEqual(env_config.containers_partition_start_gb(), 100)
+            self.assertEqual(env_config.containers_partition_device(), "/dev/vda")
+            from containers_partition import MANIFEST_FILE, assisted_openshift_manifests
+
+            items = assisted_openshift_manifests()
+            self.assertEqual(len(MANIFEST_FILE), len("98-containers-part.yaml"))
+            self.assertLessEqual(len(MANIFEST_FILE), 30)
+            self.assertEqual(list(items[0].keys()), [MANIFEST_FILE])
+            body = yaml.safe_load(items[0][MANIFEST_FILE])
+            part = body["spec"]["config"]["storage"]["disks"][0]["partitions"][0]
+            self.assertEqual(part["startMiB"], 100 * 1024)
+            self.assertEqual(part["sizeMiB"], 200 * 1024 - 1024)
+            self.assertEqual(part["label"], "var-lib-containers")
+            self.assertEqual(
+                body["spec"]["config"]["storage"]["disks"][0]["device"], "/dev/vda"
+            )
         finally:
             for key, value in old.items():
                 if value is None:

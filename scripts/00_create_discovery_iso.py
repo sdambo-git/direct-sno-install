@@ -23,6 +23,7 @@ from ailib import AssistedClient
 
 import env_config
 from assisted_common import ai_call, get_client
+from containers_partition import assisted_openshift_manifests
 
 
 def _get_client() -> AssistedClient:
@@ -94,6 +95,29 @@ def _ensure_infraenv(ai: AssistedClient, cluster: str, infraenv: str, *, force: 
     ai_call(ai, lambda: ai.create_infra_env(infraenv, _infraenv_overrides(cluster)))
 
 
+def _ensure_containers_partition_manifest(ai: AssistedClient, name: str) -> None:
+    items = assisted_openshift_manifests()
+    if not items:
+        return
+    existing = {
+        m.get("file_name")
+        for m in ai_call(ai, lambda: ai.list_manifests(name))
+    }
+    for mapping in items:
+        fname, _content = next(iter(mapping.items()))
+        if fname in existing:
+            print(f"Assisted extra manifest {fname} already on cluster {name!r}.")
+            continue
+        print(
+            f"Uploading Assisted extra manifest {fname} (openshift folder) "
+            f"for shared /var/lib/containers ..."
+        )
+        ai_call(
+            ai,
+            lambda m=mapping: ai.upload_manifests(name, directory=[m], openshift=True),
+        )
+
+
 def _download_iso(ai: AssistedClient, infraenv: str, dest: Path) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     download_dir = dest.parent
@@ -129,6 +153,7 @@ def main() -> None:
     ai = _get_client()
     _ensure_cluster(ai, name, force=args.force, multinode=multinode)
     _ensure_infraenv(ai, name, infraenv, force=args.force)
+    _ensure_containers_partition_manifest(ai, name)
     _download_iso(ai, infraenv, dest)
 
     cdrom_name = env_config.node_cdrom_image()

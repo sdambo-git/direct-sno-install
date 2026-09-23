@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Self
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 _ENV_VAR = re.compile(r"\$\{([^}]+)\}")
 
@@ -21,12 +21,27 @@ class NodePool(BaseModel):
     disk_gb: int = 100
 
 
+class ContainersPartitionSpec(BaseModel):
+    """Day-0 Assisted extra MachineConfig for /var/lib/containers.
+
+    ``gb: 0`` disables it. ``start_gb`` is left for RHCOS root (BIOS/boot +
+    sysroot). The extra partition is ``gb`` GiB from that offset.
+    """
+
+    gb: int = 0
+    start_gb: int = 100
+    device: str = "/dev/vda"
+
+
 class ClusterSpec(BaseModel):
     name: str
     version: str
     control_plane: NodePool
     workers: NodePool = Field(
         default_factory=lambda: NodePool(count=0, cpu=8, memory_mb=32768, disk_gb=100)
+    )
+    containers_partition: ContainersPartitionSpec = Field(
+        default_factory=ContainersPartitionSpec
     )
 
 
@@ -77,6 +92,21 @@ class LabSpec(BaseModel):
         if self.cluster.control_plane.count > 1 or self.cluster.workers.count:
             return "multinode"
         return "sno"
+
+    @model_validator(mode="after")
+    def _containers_partition_fits_disk(self) -> Self:
+        part = self.cluster.containers_partition
+        if part.gb <= 0:
+            return self
+        disk = self.cluster.control_plane.disk_gb
+        need = part.start_gb + part.gb
+        if disk < need:
+            raise ValueError(
+                f"cluster.containers_partition needs {need}GiB "
+                f"(start_gb={part.start_gb} + gb={part.gb}) but "
+                f"control_plane.disk_gb is {disk}"
+            )
+        return self
 
 
 def expand_path(raw: str) -> Path:
@@ -196,6 +226,18 @@ def apply_to_environ(spec: LabSpec, *, topology_path: Path | None = None) -> Non
     os.environ["CLUSTER_PROFILE"] = spec.profile
     os.environ["CONTROL_PLANE_COUNT"] = str(spec.cluster.control_plane.count)
     os.environ["EXPECTED_HOSTS"] = str(spec.expected_hosts)
+    part = spec.cluster.containers_partition
+    if part.gb > 0:
+        os.environ["CONTAINERS_PARTITION_GB"] = str(part.gb)
+        os.environ["CONTAINERS_PARTITION_START_GB"] = str(part.start_gb)
+        os.environ["CONTAINERS_PARTITION_DEVICE"] = part.device
+    else:
+        for key in (
+            "CONTAINERS_PARTITION_GB",
+            "CONTAINERS_PARTITION_START_GB",
+            "CONTAINERS_PARTITION_DEVICE",
+        ):
+            os.environ.pop(key, None)
     if topology_path is not None:
         os.environ["TOPOLOGY_PATH"] = str(topology_path)
     mapping = (

@@ -3,9 +3,13 @@ simulation:
 cluster:
   name: ocp
   version: "4.22"
-  # 300G backing disk (Air image blank-300g).
+  # 300G Air disk: 100GiB RHCOS, 199GiB /var/lib/containers (1GiB left for GPT).
   control_plane: { count: 1, cpu: 16, memory_mb: 65536, disk_gb: 300 }
   workers: { count: 0, cpu: 8, memory_mb: 32768, disk_gb: 100 }
+  containers_partition:
+    gb: 200
+    start_gb: 100
+    device: /dev/vda
 auth:
   air_api_key_file: ~/.config/dsx-air/air-api-key
   ai_offlinetoken_file: ~/.config/dsx-air/ai-offlinetoken

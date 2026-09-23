@@ -22,6 +22,8 @@ DEFAULT_DISCOVERY_ISO_NAME = "dsxair-discovery-iso"
 DEFAULT_BLANK_IMAGE_NAME = "blank-100g"
 DEFAULT_SNO_BLANK_IMAGE_NAME = "blank-300g"
 DEFAULT_SNO_BLANK_DISK_SIZE = "300G"
+DEFAULT_CONTAINERS_PARTITION_START_GB = 100
+DEFAULT_CONTAINERS_PARTITION_DEVICE = "/dev/vda"
 DEFAULT_JUMP_HOST_INITIAL_PASSWORD = "nvidia"
 DEFAULT_JUMP_HOST_PASSWORD = "redhat"
 DEFAULT_API_VIP = "192.168.200.10"
@@ -121,6 +123,25 @@ def require_ai_offlinetoken(*, now: float | None = None) -> str:
     if offline_token_expired(token, now=now):
         raise SystemExit(offlinetoken_help())
     return token
+
+
+def containers_partition_gb() -> int:
+    raw = os.environ.get("CONTAINERS_PARTITION_GB", "").strip()
+    return int(raw) if raw else 0
+
+
+def containers_partition_start_gb() -> int:
+    raw = os.environ.get("CONTAINERS_PARTITION_START_GB", "").strip()
+    if raw:
+        return int(raw)
+    return DEFAULT_CONTAINERS_PARTITION_START_GB
+
+
+def containers_partition_device() -> str:
+    return (
+        os.environ.get("CONTAINERS_PARTITION_DEVICE", "").strip()
+        or DEFAULT_CONTAINERS_PARTITION_DEVICE
+    )
 
 
 def pull_secret_path() -> Path:

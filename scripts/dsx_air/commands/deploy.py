@@ -95,6 +95,12 @@ def run_deploy(
         f"({spec.cluster.control_plane.count} CP + {spec.cluster.workers.count} workers, "
         f"OCP {spec.cluster.version})"
     )
+    part = spec.cluster.containers_partition
+    if part.gb > 0:
+        print(
+            f"Day-0 /var/lib/containers partition: {part.start_gb}GiB root + "
+            f"{part.gb}GiB on {part.device} (Assisted extra MachineConfig)"
+        )
     _probe_ai()
 
     existing = _existing_sim(spec.simulation.name)
