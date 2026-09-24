@@ -1,14 +1,11 @@
-# Copy into ibi-iso-workdir/ then:
+# Copy into ibi-iso-workdir/ then fill sshKey + pullSecret locally
+# (never commit secrets; use a *.local.yaml overlay if needed).
 #   openshift-install image-based create image --dir ibi-iso-workdir
-# Use the same openshift-install binary version as the seed (4.22.14).
+# Use openshift-install 4.22.14. Seed SNO is Assisted user-managed networking
+# with DHCP on the OOB NIC (no API/Ingress VIP). Omit networkConfig for DHCP.
 #
-# Live seed (oc debug node/ocp-cp-0, 300GiB /dev/vda, 512-byte sectors):
-#   vda1  1MiB     BIOS-BOOT
-#   vda2  127MiB   EFI-SYSTEM
-#   vda3  384MiB   boot
-#   vda4  99.5GiB  root            start sector 1050624
-#   vda5  199GiB   var-lib-containers  start sector 209715200 (= 102400 MiB = 100GiB)
-#   ~1GiB unallocated at end of disk (GPT backup)
+# Live seed (oc debug node/ocp-cp-0, 300GiB /dev/vda):
+#   vda4 99.5GiB root; vda5 199GiB var-lib-containers starting at 100GiB
 apiVersion: v1beta1
 kind: ImageBasedInstallationConfig
 metadata:
@@ -17,12 +14,20 @@ seedImage: quay.io/sdambo/ocp-seed:4.22.14
 seedVersion: "4.22.14"
 installationDisk: /dev/vda
 extraPartitionLabel: var-lib-containers
-# Positive start: partition begins here and runs to end of disk. 100GiB matches
-# seed vda5 (part 5). Target disk should be 300GiB like the seed.
 extraPartitionStart: "100GiB"
 extraPartitionNumber: 5
-# Fill these locally; do not commit secrets.
 sshKey: 'ssh-ed25519 AAAA...'
 pullSecret: '{"auths": ...}'
-# Optional static NMState. Omit to use DHCP on the target.
-# networkConfig: {}
+# Seed used DHCP (user-managed, no VIPs). Leave networkConfig unset unless
+# the target needs static IPs. For static NMState, install nmstatectl on the
+# machine that runs openshift-install, then e.g.:
+# networkConfig:
+#   interfaces:
+#     - name: eth0
+#       type: ethernet
+#       state: up
+#       ipv4:
+#         enabled: true
+#         dhcp: true
+#       ipv6:
+#         enabled: false
