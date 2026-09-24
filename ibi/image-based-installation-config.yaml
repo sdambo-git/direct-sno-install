@@ -14,7 +14,8 @@ seedImage: quay.io/sdambo/ocp-seed:4.22.14
 seedVersion: "4.22.14"
 installationDisk: /dev/vda
 extraPartitionLabel: var-lib-containers
-extraPartitionStart: "100GiB"
+# Installer regex: 0 or [+-]?<number>[KMGTP] (G = GiB). "100GiB" is rejected.
+extraPartitionStart: "100G"
 extraPartitionNumber: 5
 sshKey: 'ssh-ed25519 AAAA...'
 pullSecret: '{"auths": ...}'
