@@ -44,8 +44,20 @@ def _console_url(cluster_name: str, domain: str) -> str:
     return f"https://console-openshift-console.apps.{cluster_name}.{domain}"
 
 
-def _kubeadmin_password(cluster_name: str) -> str | None:
-    cache = repo_root() / ".cache"
+def _kubeadmin_password(cluster_name: str, *, sim_name: str | None = None) -> str | None:
+    """Return kubeadmin password for the cluster being opened.
+
+    Seed and IBI target can share ``cluster.name`` (``ocp``). The Assisted
+    download lives in ``.cache/``; the IBI config ISO writes a new password
+    under ``ibi-config-iso-workdir/auth/``.
+    """
+    root = repo_root()
+    ibi = root / "ibi-config-iso-workdir" / "auth" / "kubeadmin-password"
+    if sim_name and "ibi-target" in sim_name and ibi.is_file():
+        text = ibi.read_text().strip()
+        if text:
+            return text
+    cache = root / ".cache"
     candidates = (
         cache / "kubeadmin-password",
         cache / f"kubeadmin-password.{cluster_name}",
@@ -144,7 +156,7 @@ def run_console(
 
     ssh_cmd = tunnel.build_console_ssh_command(target=target, api_vip=api_vip)
     chrome = _find_chrome()
-    password = _kubeadmin_password(cluster_name)
+    password = _kubeadmin_password(cluster_name, sim_name=sim_name)
     print(f"Console: {url}")
     print("Username: kubeadmin")
     print(f"Password: {password or '(not found under .cache/)'}")
