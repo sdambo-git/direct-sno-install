@@ -85,9 +85,19 @@ def wait_for_sim_state(sim: Simulation, *states: str, timeout: int = 180, interv
         time.sleep(interval)
 
 
-def stop_simulation_and_clear_checkpoints(sim: Simulation) -> None:
-    """Stop the simulation (if running) and delete any checkpoints so the
-    node can be safely patched afterwards."""
+def stop_simulation_and_wait_checkpoints(sim: Simulation) -> None:
+    """Stop the simulation and wait until shutdown checkpoints are COMPLETE.
+
+    Does not delete checkpoints. Deleting them can reset node disks back to
+    the topology ``os`` image (blank-300g), which wipes an IBI preinstall.
+    """
+    sim.refresh()
+    if sim.state in {"BOOTING", "REQUESTING", "PROVISIONING"}:
+        print(f"Simulation {sim.name!r} is {sim.state!r}; waiting for ACTIVE ...")
+        wait_for_sim_state(sim, "ACTIVE", timeout=600)
+    if sim.state in {"SHUTTING_DOWN", "SAVING"}:
+        print(f"Simulation {sim.name!r} is {sim.state!r}; waiting for INACTIVE ...")
+        wait_for_sim_state(sim, "INACTIVE", timeout=300)
     if sim.state != "INACTIVE":
         print(f"Stopping simulation {sim.name!r} ...")
         sim.shutdown()
@@ -95,11 +105,14 @@ def stop_simulation_and_clear_checkpoints(sim: Simulation) -> None:
     else:
         print(f"Simulation {sim.name!r} is already INACTIVE.")
 
-    checkpoints = list(sim.checkpoints.list())
+    checkpoints = [
+        cp
+        for cp in sim.checkpoints.list()
+        if getattr(cp, "state", None) not in {"DELETED", None}
+    ]
     if not checkpoints:
         return
-
-    print(f"Clearing {len(checkpoints)} checkpoint(s) before patching the node ...")
+    print(f"Waiting for {len(checkpoints)} checkpoint(s) to become COMPLETE ...")
     deadline = time.monotonic() + 300
     for cp in checkpoints:
         while True:
@@ -113,6 +126,18 @@ def stop_simulation_and_clear_checkpoints(sim: Simulation) -> None:
                     f"(last state: {state!r})."
                 )
             time.sleep(3)
+        print(f"  checkpoint {cp.id} ({cp.name}) state={getattr(cp, 'state', None)!r}")
+
+
+def stop_simulation_and_clear_checkpoints(sim: Simulation) -> None:
+    """Stop the simulation and delete checkpoints (blank-disk / recover only)."""
+    stop_simulation_and_wait_checkpoints(sim)
+    checkpoints = list(sim.checkpoints.list())
+    if not checkpoints:
+        return
+
+    print(f"Clearing {len(checkpoints)} checkpoint(s) before patching the node ...")
+    for cp in checkpoints:
         if getattr(cp, "state", None) == "DELETED":
             continue
         try:

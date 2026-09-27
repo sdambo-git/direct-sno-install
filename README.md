@@ -31,8 +31,7 @@ uv run dsx-air console
 uv run dsx-air workload --follow
 ```
 
-SNO IBI seed attempt: `uv run dsx-air deploy --spec examples/sno.yaml --replace`
-(300G disk; Assisted extra MachineConfig carves ~100GiB root + 200GiB `/var/lib/containers` at first boot — below Red Hat’s 500GiB minimum). An already-installed `vda4` that fills the disk cannot be retrofitted; `--replace` is required.
+SNO seed for image-based install: [Image-based installation](#image-based-installation-on-dsx-air).
 
 `deploy` remembers the spec in `.cache/last-spec`, so `tunnel` / `start` /
 `status` / `console` without `--spec` use that simulation (not the shared
@@ -61,6 +60,149 @@ uv run dsx-air destroy --spec examples/ha-3cp-2w.yaml --sim
 uv run dsx-air destroy --spec examples/ha-3cp-2w.yaml --cluster --force
 uv run dsx-air deploy --spec examples/ha-3cp-2w.yaml --replace
 ```
+
+## Image-based installation on DSX Air
+
+Two simulations, two ISOs. The **seed** is an Assisted SNO. The **target** boots a live ISO that restores that seed, then a site config finishes the cluster. `dsx-air deploy` is only the seed. Do not run Assisted `06`/`07` on the target.
+
+Needs `uv`, an Air API key, a pull secret, `~/.ssh/id_ed25519.pub`, and `openshift-install` **4.22.14** as `./openshift-install` or on `PATH` (same version as the seed). `xorriso` is used when applying the config ISO over SSH.
+
+| Lab | Spec | Role |
+|-----|------|------|
+| `dsx-sno-ibi` | `examples/sno.yaml` | Seed. 300G disk, ~100GiB root + containers partition. |
+| `dsx-ibi-target` | `examples/ibi-target.yaml` | Target. New sim. Do not delete the seed to rebuild this. |
+
+### 1. Install the seed
+
+```bash
+uv sync
+uv run dsx-air deploy --spec examples/sno.yaml
+uv run dsx-air tunnel --spec examples/sno.yaml
+```
+
+Run the printed `ssh -N -L` in another terminal. SNO forwards to the node OOB address (`192.168.200.2`), not the HA VIP `.10`.
+
+```bash
+export KUBECONFIG=$PWD/.cache/kubeconfig.ocp
+oc get nodes
+```
+
+The Assisted extra MachineConfig leaves about 100GiB for RHCOS and the rest for `/var/lib/containers` (`vda5`, label `var-lib-containers`). An already-filled `vda4` cannot be shrunk; `deploy --replace` is required for a new seed.
+
+### 2. Generate the seed image
+
+On the seed cluster, install Lifecycle Agent and wait until `SeedGenCompleted`:
+
+```bash
+oc apply -f ibi/ola_ns.yaml -f ibi/ola_og.yaml -f ibi/ola_sub.yaml
+oc get csv -n openshift-lifecycle-agent
+# edit ibi/seedgenerator.yaml seedImage to your registry, then:
+oc apply -f ibi/seedgenerator.yaml
+oc get seedgenerator seedimage -o yaml
+```
+
+The image must be pullable from the target (for example `quay.io/<user>/ocp-seed:4.22.14`). Leave `dsx-sno-ibi` in place. You do not need it running after the image is pushed.
+
+### 3. Build the live ISO
+
+```bash
+uv run dsx-air ibi image --spec examples/sno.yaml \
+  --seed-image quay.io/<user>/ocp-seed:4.22.14 \
+  --seed-version 4.22.14
+```
+
+Writes `ibi-iso-workdir/rhcos-ibi.iso` (gitignored; contains the pull secret). `extraPartitionStart` must be `100G`. The installer rejects `100GiB`.
+
+### 4. Create the target
+
+```bash
+uv run dsx-air ibi target --spec examples/ibi-target.yaml
+```
+
+Uploads the live ISO as `rhcos-ibi-4.22.14`, uses `blank-300g`, imports sim `dsx-ibi-target`, and starts it. Air adds `oob-mgmt-server` (DHCP `192.168.200.0/24`, jump host). Boot stays `["hd", "cdrom"]`: a blank disk falls through to the live ISO.
+
+`--replace` deletes **only** `dsx-ibi-target` and creates it again. It does not delete the seed.
+
+```bash
+uv run dsx-air start --spec examples/ibi-target.yaml
+uv run dsx-air ibi wait-oob --spec examples/ibi-target.yaml
+```
+
+The Air VGA console is often blank on this ISO. Use SSH. From the laptop (the jump host does not have the node key):
+
+```bash
+ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.2
+```
+
+`ping` can succeed while `ssh` says `connection refused` until install finishes. On the node:
+
+```bash
+journalctl -b | grep -E 'IBI preparation|Images Failed|Finished SNO'
+```
+
+Wait for `IBI preparation process finished successfully!` and `Finished SNO Image-based Installation`. `Images Failed to Pull` must be `0`. `lsblk` should show `vda4` root and `vda5` for containers.
+
+### 5. Build the configuration ISO
+
+```bash
+uv run dsx-air ibi config-image --spec examples/ibi-target.yaml
+```
+
+Writes `ibi-config-iso-workdir/imagebasedconfig.iso` (label `cluster-config`) and `ibi-config-iso-workdir/auth/kubeconfig`. That kubeconfig is the **target** cluster. `.cache/kubeconfig.ocp` is the seed and will not match after recertification.
+
+If `create config-image` fails because a previous state file is already consumed, remove `ibi-config-iso-workdir/.openshift_install_state.json` only when you intend to regenerate the ISO and kubeconfig.
+
+### 6. Apply site config
+
+Air will not change the CD-ROM while a checkpoint exists, and deleting that checkpoint can reset the disk to `blank-300g`. Apply the config over SSH instead:
+
+```bash
+uv run dsx-air ibi apply-config --spec examples/ibi-target.yaml
+```
+
+Or by hand, after `scp` of `cluster-configuration` to `core`:
+
+```bash
+sudo mkdir -p /opt/openshift
+sudo rm -rf /opt/openshift/cluster-configuration
+sudo cp -a ~/cluster-configuration /opt/openshift/cluster-configuration
+sudo chmod -R a+rX /opt/openshift/cluster-configuration
+journalctl -b -f
+```
+
+Lifecycle Agent accepts that directory or a CD-ROM labeled `cluster-config`. It leaves the “waiting for cluster-config” loop and brings up the API on `192.168.200.2:6443`.
+
+`ibi attach-config` swaps the CD-ROM. Use it only on a sim with no checkpoints. Do not run it while the sim is `BOOTING`.
+
+### 7. Use the cluster and the web console
+
+The target has the usual OpenShift web console once the console operator is up. The Air VGA window on `ocp-cp-0` is not that console and is often blank on the live ISO.
+
+```bash
+export KUBECONFIG=$PWD/ibi-config-iso-workdir/auth/kubeconfig
+uv run dsx-air tunnel --spec examples/ibi-target.yaml
+oc get nodes
+oc get co console
+```
+
+Expect the node `Ready` with `control-plane,master`. Pass `--spec examples/ibi-target.yaml` so the tunnel uses this sim’s jump host (`192.168.200.2` for both API and apps). `.cache/last-spec` may still point at the seed. `.cache/kubeconfig.ocp` is the seed and will not log into this cluster.
+
+Open the console from the laptop:
+
+```bash
+uv run dsx-air console --spec examples/ibi-target.yaml
+```
+
+That starts SOCKS on `127.0.0.1:1080` through the target jump host and launches Chrome at:
+
+`https://console-openshift-console.apps.ocp.dsx.air.local`
+
+| Field | Value |
+|-------|--------|
+| Username | `kubeadmin` |
+| Password | `ibi-config-iso-workdir/auth/kubeadmin-password` |
+
+That password file is created with the config ISO. Do not use `.cache/kubeadmin-password.ocp` (seed). If the page does not load, `oc get co console` and `oc get pods -n openshift-console` show whether the route is up yet.
 
 ## Operate existing `ocp-cluster`
 

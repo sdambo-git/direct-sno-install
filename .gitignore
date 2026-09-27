@@ -16,5 +16,9 @@ scripts/seedgen.yaml
 # Contains a password hash for the 'core' user — excluded out of caution.
 scripts/set-core-user-password-machineconfig.yaml
 
+# IBI workdirs hold pull secrets, kubeconfigs, and large ISOs.
+ibi-iso-workdir/
+ibi-config-iso-workdir/
+
 # Agent
 .cursor/

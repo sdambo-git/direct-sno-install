@@ -14,6 +14,7 @@ DISCOVERY_ISO_PATH / ISO_PATH (default: ../.cache/dsxair-discovery.iso).
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from air_sdk import AirApi
 from air_sdk.utils import wait_for_state
@@ -27,11 +28,51 @@ def get_api() -> AirApi:
     return AirApi.with_api_key(api_key=env_config.air_api_key())
 
 
-def _find_image(api: AirApi, name: str):
+def find_image(api: AirApi, name: str):
     return next(
         (img for img in api.images.list(search=name) if img.name == name),
         None,
     )
+
+
+def upload_iso(
+    api: AirApi,
+    *,
+    name: str,
+    filepath: Path,
+    replace: bool = False,
+):
+    """Create or replace an Air ISO image. Skip when the name exists and replace is false."""
+    if not filepath.is_file():
+        raise SystemExit(f"ISO not found: {filepath}")
+    existing = find_image(api, name)
+    if existing is not None and not replace:
+        print(
+            f"Air image {name!r} already exists (id={existing.id}, "
+            f"upload_status={existing.upload_status!r}). Skipping upload. "
+            "Pass --replace to overwrite its content."
+        )
+        return existing
+    if existing is not None and replace:
+        print(f"Replacing content of existing Air image {name!r} (id={existing.id}) ...")
+        existing.clear_upload()
+        existing.refresh()
+        existing.upload(filepath=str(filepath))
+        wait_for_state(existing, "COMPLETE", state_field="upload_status", error_states="READY")
+        print(f"Replace complete: image id={existing.id}, name={existing.name!r}")
+        return existing
+    print(f"Uploading {filepath} as Air image {name!r} ...")
+    image = api.images.create(
+        name=name,
+        version="2.0.0",
+        default_username="core",
+        default_password="password",  # cosmetic; API rejects blank
+        cpu_arch="x86",
+        filepath=str(filepath),
+    )
+    wait_for_state(image, "COMPLETE", state_field="upload_status", error_states="READY")
+    print(f"Upload complete: image id={image.id}, name={image.name!r}")
+    return image
 
 
 def main() -> None:
@@ -51,36 +92,7 @@ def main() -> None:
     image_name = args.name or IMAGE_NAME
     iso_path = env_config.discovery_iso_path(must_exist=True)
     api = get_api()
-    existing = _find_image(api, image_name)
-
-    if existing is not None and not args.replace:
-        print(
-            f"Air image {image_name!r} already exists (id={existing.id}, "
-            f"upload_status={existing.upload_status!r}). Skipping upload. "
-            "Pass --replace to overwrite its content."
-        )
-        return
-
-    if existing is not None and args.replace:
-        print(f"Replacing content of existing Air image {image_name!r} (id={existing.id}) ...")
-        existing.clear_upload()
-        existing.refresh()
-        existing.upload(filepath=str(iso_path))
-        wait_for_state(existing, "COMPLETE", state_field="upload_status", error_states="READY")
-        print(f"Replace complete: image id={existing.id}, name={existing.name!r}")
-        return
-
-    print(f"Uploading {iso_path} as Air image {image_name!r} ...")
-    image = api.images.create(
-        name=image_name,
-        version="2.0.0",
-        default_username="core",
-        default_password="password",  # cosmetic; API rejects blank
-        cpu_arch="x86",
-        filepath=str(iso_path),
-    )
-    wait_for_state(image, "COMPLETE", state_field="upload_status", error_states="READY")
-    print(f"Upload complete: image id={image.id}, name={image.name!r}")
+    upload_iso(api, name=image_name, filepath=iso_path, replace=args.replace)
     print(
         "Now ensure blank-100g exists (upload_blank_disk.py), then run "
         "01_create_simulation.py."

@@ -30,8 +30,19 @@ export CLUSTER_PROFILE=multinode
 uv run dsx-air demo
 ```
 
-Commands: `deploy`, `destroy`, `recover`, `console`, `start`, `status`, `tunnel`, `cluster`, `operators`, `demo`.
+Commands: `deploy`, `destroy`, `recover`, `console`, `start`, `status`, `tunnel`, `cluster`, `operators`, `demo`, `ibi`.
 Package: `scripts/dsx_air/`. Walkthrough: [../DEMO.md](../DEMO.md).
+
+Image-based SNO (after a seed exists and `openshift-install` 4.22.14 is on PATH or `./openshift-install`):
+
+```bash
+uv run dsx-air ibi image --spec examples/sno.yaml
+uv run dsx-air ibi target --spec examples/ibi-target.yaml
+uv run dsx-air ibi wait-oob --spec examples/ibi-target.yaml
+# wait for IBI preparation on the Air console / SSH
+uv run dsx-air ibi config-image --spec examples/ibi-target.yaml
+uv run dsx-air ibi attach-config --spec examples/ibi-target.yaml
+```
 
 ## Normal install flow — SNO (in order)
 
@@ -88,6 +99,7 @@ Uses `topology-multinode.json` and `CLUSTER_NAME=ocp-cluster` by default.
 | Script | What it's for |
 |---|---|
 | `upload_qcow2_image.py` | Upload an arbitrary pre-installed qcow2 as an Air VM image (`QCOW2_PATH`, optional `IMAGE_NAME`). Different from the discovery-ISO flow. |
+| `attach_ibi_config_iso.py` | Wrapper for `dsx-air ibi attach-config`. |
 | `host-creation.py` | Add an ad hoc utility node to a running simulation (brief stop/start required). |
 | `import_topology.py` | Older import helper superseded by `01_create_simulation.py`. |
 

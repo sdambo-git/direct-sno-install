@@ -1,0 +1,14 @@
+# Image-based *target* lab (not the seed). No Assisted Installer.
+# After `uv run dsx-air ibi image`, create this sim with the live ISO:
+#   uv run dsx-air ibi target --spec examples/ibi-target.yaml
+simulation:
+  name: dsx-ibi-target
+cluster:
+  name: ocp
+  version: "4.22"
+  control_plane: { count: 1, cpu: 16, memory_mb: 65536, disk_gb: 300 }
+  workers: { count: 0, cpu: 8, memory_mb: 32768, disk_gb: 100 }
+auth:
+  air_api_key_file: ~/.config/dsx-air/air-api-key
+  pull_secret_file: ~/.config/dsx-air/pull-secret.json
+  ssh_public_key_file: ~/.ssh/id_ed25519.pub

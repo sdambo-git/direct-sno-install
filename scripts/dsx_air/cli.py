@@ -8,7 +8,7 @@ from typing import Optional
 import typer
 
 from dsx_air._bootstrap import ensure_scripts_path, repo_root
-from dsx_air.commands import cluster, console, demo, deploy, destroy, operators, recover, start, status, tunnel_cmd, workload
+from dsx_air.commands import cluster, console, demo, deploy, destroy, ibi_cmd, operators, recover, start, status, tunnel_cmd, workload
 
 app = typer.Typer(
     name="dsx-air",
@@ -16,6 +16,7 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
+app.add_typer(ibi_cmd.app, name="ibi")
 
 
 def _ensure_default_profile() -> None:
