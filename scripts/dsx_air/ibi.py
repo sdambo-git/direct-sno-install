@@ -219,7 +219,7 @@ def apply_config_via_ssh(*, spec_path: Path | None, iso: Path | None = None) -> 
         f"ProxyJump={jump}",
         "-r",
         str(src),
-        f"core@{OOB_NODE_IP}:/var/home/core/cluster-configuration",
+        f"core@{OOB_NODE_IP}:cluster-configuration",
     ]
     print(f"+ {' '.join(scp)}", flush=True)
     copied = subprocess.run(scp, check=False)
@@ -231,7 +231,7 @@ def apply_config_via_ssh(*, spec_path: Path | None, iso: Path | None = None) -> 
     remote = (
         "sudo mkdir -p /opt/openshift && "
         "sudo rm -rf /opt/openshift/cluster-configuration && "
-        "sudo cp -a /var/home/core/cluster-configuration /opt/openshift/cluster-configuration && "
+        "sudo cp -a \"$HOME/cluster-configuration\" /opt/openshift/cluster-configuration && "
         "sudo chmod -R a+rX /opt/openshift/cluster-configuration && "
         "ls -la /opt/openshift/cluster-configuration"
     )

@@ -191,7 +191,18 @@ uv run dsx-air ibi config-image --spec examples/ibi-target.yaml
 
 Writes `ibi-config-iso-workdir/imagebasedconfig.iso` (label `cluster-config`) and `ibi-config-iso-workdir/auth/kubeconfig`. That kubeconfig is the **target** cluster. `.cache/kubeconfig.ocp` is the seed and will not match after recertification.
 
-If `create config-image` fails because a previous state file is already consumed, remove `ibi-config-iso-workdir/.openshift_install_state.json` only when you intend to regenerate the ISO and kubeconfig.
+Run this once per cluster identity. A second run in the same directory fails with `cannot generate config image due to configuration errors`. `openshift-install` loads `.openshift_install_state.json`, sees the config ISO was already created, deletes `install-config.yaml` and `image-based-config.yaml`, and refuses to write the asset again. The files from the successful run are still valid:
+
+- `ibi-config-iso-workdir/imagebasedconfig.iso`
+- `ibi-config-iso-workdir/auth/kubeconfig`
+- `ibi-config-iso-workdir/auth/kubeadmin-password`
+
+Use those. Delete the state file only when you want a new cluster identity (new certificates and a new `kubeadmin` password). The target that already received the old config will not match the new kubeconfig.
+
+```bash
+rm -f ibi-config-iso-workdir/.openshift_install_state.json
+uv run dsx-air ibi config-image --spec examples/ibi-target.yaml
+```
 
 ### 6. Apply site config
 
@@ -201,17 +212,34 @@ Air will not change the CD-ROM while a checkpoint exists, and deleting that chec
 uv run dsx-air ibi apply-config --spec examples/ibi-target.yaml
 ```
 
-Or by hand, after `scp` of `cluster-configuration` to `core`:
+Or by hand. `lca-cli` only watches `/opt/openshift/cluster-configuration` or a CD-ROM labeled `cluster-config`. A copy in `$HOME` (often `/var/home/core`) is not enough, and that `/opt` directory does not survive a reboot. Copy it while the wait loop is already running, then do not reboot.
+
+If `journalctl -b -f` only shows your `sudo` lines, the waiter is not running. Reboot once, SSH back in, and confirm it is polling:
 
 ```bash
+journalctl -b | grep 'waiting for block device' | tail
+```
+
+From the laptop, while that loop is running:
+
+```bash
+scp -o ProxyJump=ubuntu@<jump-host>:<port> -r \
+  .cache/ibi-config-extract/cluster-configuration \
+  core@192.168.200.2:cluster-configuration
+```
+
+On the node:
+
+```bash
+ls "$HOME/cluster-configuration/manifest.json"
 sudo mkdir -p /opt/openshift
 sudo rm -rf /opt/openshift/cluster-configuration
-sudo cp -a ~/cluster-configuration /opt/openshift/cluster-configuration
-sudo chmod -R a+rX /opt/openshift/cluster-configuration
+sudo cp -a "$HOME/cluster-configuration" /opt/openshift/cluster-configuration
+ls /opt/openshift/cluster-configuration/manifest.json
 journalctl -b -f
 ```
 
-Lifecycle Agent accepts that directory or a CD-ROM labeled `cluster-config`. It leaves the “waiting for cluster-config” loop and brings up the API on `192.168.200.2:6443`.
+The `waiting for block device` lines should stop within a second. `lca-cli` then reconfigures the node and brings up the API on `192.168.200.2:6443`.
 
 `ibi attach-config` swaps the CD-ROM. Use it only on a sim with no checkpoints. Do not run it while the sim is `BOOTING`.
 
