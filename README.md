@@ -137,14 +137,15 @@ Uploads the live ISO as `rhcos-ibi-4.22.14`, uses `blank-300g`, imports sim `dsx
 
 `--replace` deletes **only** `dsx-ibi-target` and creates it again. It does not delete the seed.
 
+`ibi target` already starts the simulation. It also tries to bootstrap the jump host immediately, and that SSH port is often not listening yet (`connection refused`). If the import log says the jump host was skipped, retry only that bootstrap. This does not create another sim:
+
 ```bash
 uv run dsx-air start --spec examples/ibi-target.yaml
-uv run dsx-air ibi wait-oob --spec examples/ibi-target.yaml
 ```
 
-The Air VGA console is often blank on this ISO. Check the sim from the laptop, then the install journal on the node.
+The Air VGA console is often blank on this ISO. Check the node from the laptop, then the install journal.
 
-**Check the sim is up.** `wait-oob` prints the jump SSH command when `192.168.200.2` answers ping. `ssh` to that address can still say `connection refused` while the live ISO is installing.
+**Check the sim is up.** This waits until `192.168.200.2` answers ping and prints the jump SSH command. It does not create the sim. `ssh` to `.2` can still say `connection refused` while the live ISO is installing.
 
 ```bash
 uv run dsx-air ibi wait-oob --spec examples/ibi-target.yaml
