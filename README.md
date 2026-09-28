@@ -91,17 +91,31 @@ The Assisted extra MachineConfig leaves about 100GiB for RHCOS and the rest for 
 
 ### 2. Generate the seed image
 
-On the seed cluster, install Lifecycle Agent and wait until `SeedGenCompleted`:
+On the seed cluster, install Lifecycle Agent:
 
 ```bash
 oc apply -f ibi/ola_ns.yaml -f ibi/ola_og.yaml -f ibi/ola_sub.yaml
 oc get csv -n openshift-lifecycle-agent
-# edit ibi/seedgenerator.yaml seedImage to your registry, then:
+```
+
+Lifecycle Agent pushes `spec.seedImage` from `ibi/seedgenerator.yaml` (currently `quay.io/sdambo/ocp-seed:4.22.14`). It will not start until a Secret named `seedgen` exists in `openshift-lifecycle-agent`. The cluster pull secret is not that Secret. Log in with an account that can **push** to that repository, then create the Secret from the auth file. Do not commit it (`scripts/seedgen.yaml` is gitignored for this):
+
+```bash
+podman login quay.io
+oc create secret generic seedgen \
+  -n openshift-lifecycle-agent \
+  --from-file=seedAuth="${XDG_RUNTIME_DIR:-$HOME/.config}/containers/auth.json"
+```
+
+If `podman` wrote `$HOME/.config/containers/auth.json` instead, pass that path. Then apply the generator. A failed `SeedGenerator` does not retry; delete it before applying again:
+
+```bash
+oc delete seedgenerator seedimage --ignore-not-found
 oc apply -f ibi/seedgenerator.yaml
 oc get seedgenerator seedimage -o yaml
 ```
 
-The image must be pullable from the target (for example `quay.io/<user>/ocp-seed:4.22.14`). Leave `dsx-sno-ibi` in place. You do not need it running after the image is pushed.
+The seed node reboots and the API drops while the image is built and pushed. When it returns, `status.conditions` type `SeedGenCompleted` must be `True`. The image must be pullable from the target. Leave `dsx-sno-ibi` in place. You do not need it running after the image is pushed.
 
 ### 3. Build the live ISO
 
@@ -128,19 +142,45 @@ uv run dsx-air start --spec examples/ibi-target.yaml
 uv run dsx-air ibi wait-oob --spec examples/ibi-target.yaml
 ```
 
-The Air VGA console is often blank on this ISO. Use SSH. From the laptop (the jump host does not have the node key):
+The Air VGA console is often blank on this ISO. Check the sim from the laptop, then the install journal on the node.
+
+**Check the sim is up.** `wait-oob` prints the jump SSH command when `192.168.200.2` answers ping. `ssh` to that address can still say `connection refused` while the live ISO is installing.
+
+```bash
+uv run dsx-air ibi wait-oob --spec examples/ibi-target.yaml
+# from the jump host printed above:
+ping -c 2 192.168.200.2
+```
+
+**Check IBI preparation finished.** The jump host does not have the node SSH key. From the laptop:
 
 ```bash
 ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.2
 ```
 
-`ping` can succeed while `ssh` says `connection refused` until install finishes. On the node:
+On the node, wait until this shows `IBI preparation process finished successfully!`:
 
 ```bash
 journalctl -b | grep -E 'IBI preparation|Images Failed|Finished SNO'
 ```
 
-Wait for `IBI preparation process finished successfully!` and `Finished SNO Image-based Installation`. `Images Failed to Pull` must be `0`. `lsblk` should show `vda4` root and `vda5` for containers.
+Expected lines, in order:
+
+```text
+IBI preparation process has started
+Images Failed to Pull: 0
+Pre-cached images successfully.
+IBI preparation process finished successfully!
+Finished SNO Image-based Installation.
+```
+
+`Images Failed to Pull` must be `0`. Then confirm the disk:
+
+```bash
+lsblk -o NAME,SIZE,LABEL,MOUNTPOINT
+```
+
+`vda4` is root and `vda5` is the containers partition. Do not build the config ISO or run `ibi apply-config` before the finished line. A target that already completed this keeps the seed that was current at boot. A new Quay tag is pulled only by a new live ISO on a new or rebuilt target.
 
 ### 5. Build the configuration ISO
 
