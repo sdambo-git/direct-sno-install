@@ -608,7 +608,9 @@ export EXPECTED_HOSTS=3
 export TOPOLOGY_PATH=Topology-NoDPU.json
 export API_VIP=192.168.200.19
 export INGRESS_VIP=192.168.200.20
-# AIR_API_KEY, AI_OFFLINETOKEN, PULL_SECRET_PATH ...
+export AIR_API_KEY_FILE=~/.config/dsx-air/air-api-key
+export AI_OFFLINETOKEN_FILE=~/.config/dsx-air/ai-offlinetoken
+export PULL_SECRET_PATH=~/.config/dsx-air/pull-secret.json
 
 uv run run_cluster.py --all --yes
 ```
@@ -633,7 +635,9 @@ export EXPECTED_HOSTS=3
 export TOPOLOGY_PATH=Topology-NoDPU.json
 export API_VIP=192.168.200.19
 export INGRESS_VIP=192.168.200.20
-# AIR_API_KEY, AI_OFFLINETOKEN, PULL_SECRET_PATH ...
+export AIR_API_KEY_FILE=~/.config/dsx-air/air-api-key
+export AI_OFFLINETOKEN_FILE=~/.config/dsx-air/ai-offlinetoken
+export PULL_SECRET_PATH=~/.config/dsx-air/pull-secret.json
 
 uv run delete_assisted_cluster.py --yes
 uv run 00_create_discovery_iso.py --force --profile multinode
