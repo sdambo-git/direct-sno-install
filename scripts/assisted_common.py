@@ -144,7 +144,7 @@ def assign_topology_host_roles(ai: AssistedClient, *, dry_run: bool = False) -> 
     or that are past the AI states where role can still be changed.
     """
     mapping = hosts_by_topology_name(ai)
-    topo_names = env_config.topology_node_names()
+    topo_names = env_config.expected_topology_node_names()
     if len(mapping) < len(topo_names):
         missing = [name for name in topo_names if name not in mapping]
         raise SystemExit(
@@ -199,13 +199,14 @@ def assign_topology_host_roles(ai: AssistedClient, *, dry_run: bool = False) -> 
 def hosts_by_topology_name(ai: AssistedClient) -> dict[str, dict]:
     mapping: dict[str, dict] = {}
     unmatched = list(cluster_hosts(ai))
-    for topo_name in env_config.topology_node_names():
+    expected_names = env_config.expected_topology_node_names()
+    for topo_name in expected_names:
         match = next((h for h in unmatched if _host_matches_topology(h, topo_name)), None)
         if match is not None:
             mapping[topo_name] = match
             unmatched.remove(match)
-    if unmatched and env_config.topology_node_names():
-        for host, topo_name in zip(unmatched, env_config.topology_node_names()):
+    if unmatched and expected_names:
+        for host, topo_name in zip(unmatched, expected_names):
             if topo_name not in mapping:
                 mapping[topo_name] = host
     return mapping

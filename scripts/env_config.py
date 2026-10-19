@@ -275,6 +275,22 @@ def worker_node_names() -> list[str]:
     return [name for name in topology_node_names() if name not in cp_names]
 
 
+def expected_topology_node_names() -> list[str]:
+    """Topology nodes actually expected to register with Assisted Installer.
+
+    Control-plane names plus just enough worker-candidate names (in topology
+    order) to reach ``expected_hosts()``. Plain ``topology_node_names()``
+    includes every node in the manifest, which breaks role assignment for
+    hand-built topologies that mix OCP nodes with unrelated infrastructure
+    (e.g. fabric switches) — those extra names would never match a real
+    Assisted Installer host. Requires EXPECTED_HOSTS to be set accurately
+    for such topologies; otherwise it falls back to the full node list.
+    """
+    cp_names = control_plane_node_names()
+    needed_workers = max(0, expected_hosts() - len(cp_names))
+    return cp_names + worker_node_names()[:needed_workers]
+
+
 def host_role_for_topology_node(node_name: str) -> str:
     """Assisted Installer host_role value for a topology node name."""
     return "master" if node_name in control_plane_node_names() else "worker"

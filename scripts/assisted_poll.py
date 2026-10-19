@@ -244,7 +244,7 @@ def check_air_discovery_boot() -> list[PollIssue]:
         from air_common import get_api, get_simulation
 
         sim = get_simulation(get_api())
-        node_names = env_config.topology_node_names() or [env_config.cluster_name()]
+        node_names = env_config.expected_topology_node_names() or [env_config.cluster_name()]
         nodes_by_name = {n.name: n for n in sim.nodes.list()}
         issues: list[PollIssue] = []
         for name in node_names:
