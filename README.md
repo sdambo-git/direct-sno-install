@@ -548,6 +548,107 @@ Per-node recovery:
 uv run 09_recover_to_discovery.py --all --reset-ai
 ```
 
+## NVIDIA DSX fabric multinode HA (`Topology-NoDPU.json`)
+
+`Topology-NoDPU.json` (repo root) is a hand-written Air manifest modeling an
+NVIDIA DSX reference fabric: 4 Cumulus VX switches (`ew-leaf-*`,
+`ew-spine-*`), 3 OOB-side switches (`ns-leaf-*`, `ns-spine-*`,
+`ns-oob-leaf-01`), and 8 compute nodes. Three of them —
+`hgx-su01-n01/02/03` — are renamed `ocp-cp-0/1/2` and resized to the same
+HA control-plane spec as `topology-multinode.json` (16 vCPU / 64 GB / 100 GB,
+`os: blank-100g`, discovery-ISO `cdrom`, `boot: [hd, cdrom]`); the rest
+(`hgx-su01-n04`..`n08`) stay plain Ubuntu nodes, unrelated to the OpenShift
+cluster. Every node pins its own `management_interfaces` IP/MAC on
+`192.168.200.0/24`, so OOB addressing is static, not Air DHCP order.
+
+This whole sequence (import → discovery → role assignment → install →
+verify) has been run end-to-end against this file and confirmed working.
+
+**Two things don't match the plain `topology-multinode.json` defaults:**
+
+1. **VIP collision.** Default `API_VIP=192.168.200.10` / `INGRESS_VIP=192.168.200.11`
+   are already statically claimed by `ns-spine-02-02` and `ocp-cp-0` in this
+   topology. Use free addresses instead — everything `.2`–`.18` is taken by
+   fabric/compute nodes, so e.g. `API_VIP=192.168.200.19`,
+   `INGRESS_VIP=192.168.200.20`.
+2. **Role assignment needed a code fix.** `assign_topology_host_roles()`
+   used to require *every* node in the topology manifest to match an
+   Assisted Installer host — fine for `topology-multinode.json` (3 nodes,
+   all OCP), but `Topology-NoDPU.json` has 17 nodes and only 3 ever register.
+   `env_config.expected_topology_node_names()` now bounds the expected
+   roster to control-plane names plus only as many worker names as
+   `EXPECTED_HOSTS` calls for, so the other 14 fabric/compute nodes are
+   correctly ignored. This requires `EXPECTED_HOSTS` to be set accurately
+   (`3` here) — if left unset it falls back to counting every manifest node
+   again.
+
+**Shared org quota**: the 3×16vCPU/64GB control planes plus the rest of the
+fabric need ~85 vCPU / ~230 GiB. Check your org's resource budget
+(`api.organizations.list()[0].usage` vs `.cpu`/`.memory`) before importing —
+tear down other **ACTIVE** simulations first if there isn't enough headroom,
+the same as the plain multinode profile's quota warning above, just with a
+bigger ask.
+
+### Bring it up from scratch
+
+```bash
+cd scripts
+export CLUSTER_PROFILE=multinode
+export CLUSTER_NAME=ocp-nodpu
+export OCP_VERSION=4.19
+export EXPECTED_HOSTS=3
+export TOPOLOGY_PATH=Topology-NoDPU.json
+export API_VIP=192.168.200.19
+export INGRESS_VIP=192.168.200.20
+# AIR_API_KEY, AI_OFFLINETOKEN, PULL_SECRET_PATH ...
+
+uv run run_cluster.py --all --yes
+```
+
+This runs the same 11 steps as the plain multinode profile (see `--list`):
+creates the Assisted Installer cluster, builds and uploads a fresh discovery
+ISO, rewrites `cdrom` only on nodes that already have that key (so the
+fabric/switch nodes are left untouched), imports the Air simulation, waits
+for all 3 `ocp-cp-*` hosts to register, assigns `master` to each, configures
+VIPs, and installs. Host discovery can take a few minutes to pick up NTP
+(`Host couldn't synchronize with any NTP server` warnings are expected and
+self-resolve); the install itself takes roughly 40–60 minutes.
+
+If the simulation imports but won't actually boot (stays `INACTIVE` after
+`REQUESTING`, or `sim.sleep` stays `True` even after `sim.start()`), that's
+the org quota being silently exceeded, not a crash — check
+`api.organizations.list()[0].usage` against `.cpu`/`.memory` and free up
+another active simulation first.
+
+### Check it's working with `oc`
+
+Orchestrator step 11 (`08_verify_cluster.py`) copies `oc` and the kubeconfig
+onto `oob-mgmt-server` and prints the real jump-host port/FQDN for the
+command below. The kubeconfig already uses
+`https://api.ocp-nodpu.dsx.air.local:6443`, so plain `oc get nodes` is
+enough — no `--server` / `--insecure-skip-tls-verify`:
+
+```bash
+# /etc/hosts (once)
+127.0.0.1 api.ocp-nodpu.dsx.air.local
+127.0.0.1 console-openshift-console.apps.ocp-nodpu.dsx.air.local
+127.0.0.1 oauth-openshift.apps.ocp-nodpu.dsx.air.local
+
+# Terminal 1 — leave this running (step 11 fills in <port> and <jump-host-fqdn>)
+ssh -N -L 127.0.0.1:6443:192.168.200.19:6443 -p <port> ubuntu@<jump-host-fqdn>
+
+# Another terminal
+export KUBECONFIG=../.cache/kubeconfig.ocp-nodpu
+oc get nodes
+oc get co
+```
+
+Expect `ocp-cp-0`, `ocp-cp-1`, `ocp-cp-2` all `Ready` with `master`, and
+cluster operators `AVAILABLE=True`. For the web console, forward the
+**Ingress VIP** (`192.168.200.20`, not `.11`) instead of the plain
+multinode profile's `.11` in a second tunnel, then open
+`https://console-openshift-console.apps.ocp-nodpu.dsx.air.local`.
+
 ## Scripts reference
 
 See `scripts/SCRIPTS.md` for a full index of every script in `scripts/`.
