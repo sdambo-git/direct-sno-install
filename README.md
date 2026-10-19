@@ -591,6 +591,14 @@ bigger ask.
 
 ### Bring it up from scratch
 
+If the simulation imports but won't actually boot (stays `INACTIVE` after
+`REQUESTING`, or `sim.sleep` stays `True` even after `sim.start()`), that's
+the org quota being silently exceeded, not a crash — check
+`api.organizations.list()[0].usage` against `.cpu`/`.memory` and free up
+another active simulation first.
+
+#### Option A — `run_cluster.py` orchestrator (recommended)
+
 ```bash
 cd scripts
 export CLUSTER_PROFILE=multinode
@@ -614,11 +622,42 @@ VIPs, and installs. Host discovery can take a few minutes to pick up NTP
 (`Host couldn't synchronize with any NTP server` warnings are expected and
 self-resolve); the install itself takes roughly 40–60 minutes.
 
-If the simulation imports but won't actually boot (stays `INACTIVE` after
-`REQUESTING`, or `sim.sleep` stays `True` even after `sim.start()`), that's
-the org quota being silently exceeded, not a crash — check
-`api.organizations.list()[0].usage` against `.cpu`/`.memory` and free up
-another active simulation first.
+#### Option B — manual, step by step
+
+```bash
+cd scripts
+export CLUSTER_PROFILE=multinode
+export CLUSTER_NAME=ocp-nodpu
+export OCP_VERSION=4.19
+export EXPECTED_HOSTS=3
+export TOPOLOGY_PATH=Topology-NoDPU.json
+export API_VIP=192.168.200.19
+export INGRESS_VIP=192.168.200.20
+# AIR_API_KEY, AI_OFFLINETOKEN, PULL_SECRET_PATH ...
+
+uv run delete_assisted_cluster.py --yes
+uv run 00_create_discovery_iso.py --force --profile multinode
+
+ISO_NAME="dsxair-discovery-$(date +%s)"
+uv run upload_discovery_iso.py --name "$ISO_NAME"
+# Set cdrom to $ISO_NAME on the 3 ocp-cp-* nodes in Topology-NoDPU.json only
+# — they're the only nodes with an existing cdrom key; leave the switches
+# and other Ubuntu nodes untouched.
+uv run upload_blank_disk.py
+uv run verify_topology_alignment.py   # optional sanity check
+uv run 01_create_simulation.py
+uv run 06_wait_for_host_ipv4.py --min-hosts 3 --require-known
+uv run assign_host_roles.py          # optional; 07 also assigns roles
+uv run 07_install_cluster.py --configure-only   # gate before install
+uv run 07_install_cluster.py
+uv run 08_verify_cluster.py
+```
+
+Same steps and gotchas as Option A, just run one at a time instead of via the
+orchestrator — useful for understanding each stage or stopping to inspect
+state between them. `08_verify_cluster.py` prints the exact tunnel command
+with the real jump-host port/FQDN filled in; use it in the verification
+section below.
 
 ### Check it's working with `oc`
 
