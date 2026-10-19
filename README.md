@@ -355,11 +355,17 @@ export KUBECONFIG=$PWD/ibi-config-iso-workdir/auth/kubeconfig
 ssh -f -N -o ProxyCommand="ssh -W %h:%p -p <jump-port> ubuntu@<jump-host>" \
   -L 127.0.0.1:6443:192.168.200.11:6443 core@192.168.200.11
 
-oc get nodes --server=https://127.0.0.1:6443 --insecure-skip-tls-verify
-oc get co --server=https://127.0.0.1:6443 --insecure-skip-tls-verify
+oc get nodes
+oc get co
 ```
 
-Expect `ocp-cp-0` `Ready` with `control-plane,master`, and cluster operators `AVAILABLE=True` (give `network` a minute if it's still rolling out multus — that's normal). `dsx-air tunnel`/`console --spec` don't resolve this sim's node correctly out of the box (same `192.168.200.2` default as `apply-config`, via `dsx_air/air_status.py`'s `api_forward_ip()`); either keep using a manual `ssh -L`, or set `API_FORWARD=192.168.200.11` and point `--spec` at a new spec file with `simulation.name: Topology-NoDPU` to get the CLI tunnel/console working.
+The kubeconfig's `server:` is `https://api.ocp.dsx.air.local:6443` with a cert valid for that name — no `--server`/`--insecure-skip-tls-verify` needed, as long as `/etc/hosts` maps `api.ocp.dsx.air.local` (and the `*.apps.ocp.dsx.air.local` names, for the console) to `127.0.0.1`. Add that once if it's not already there:
+
+```bash
+echo "127.0.0.1 api.ocp.dsx.air.local console-openshift-console.apps.ocp.dsx.air.local" | sudo tee -a /etc/hosts
+```
+
+Expect `ocp-cp-0` `Ready` with `control-plane,master,worker`, and cluster operators `AVAILABLE=True` (give `network` a minute if it's still rolling out multus — that's normal). `dsx-air tunnel`/`console --spec` don't resolve this sim's node correctly out of the box (same `192.168.200.2` default as `apply-config`, via `dsx_air/air_status.py`'s `api_forward_ip()`); either keep using a manual `ssh -L`, or set `API_FORWARD=192.168.200.11` and point `--spec` at a new spec file with `simulation.name: Topology-NoDPU` to get the CLI tunnel/console working.
 
 ## Operate existing `ocp-cluster`
 
