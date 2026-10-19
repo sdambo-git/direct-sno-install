@@ -1,0 +1,3148 @@
+{
+    "format": "JSON",
+    "ztp": null,
+    "content": {
+        "nodes": {
+            "ew-leaf-su01-01-01": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 1785,
+                    "y": 255
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.2",
+                        "mac_address": "48:B0:2D:00:00:00"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ew-leaf-su01-01-02": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 2040,
+                    "y": 255
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.3",
+                        "mac_address": "48:B0:2D:00:02:58"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ew-spine-02-01": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 1785,
+                    "y": 0
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.4",
+                        "mac_address": "48:B0:2D:00:04:B0"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ew-spine-02-02": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 2040,
+                    "y": 0
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.5",
+                        "mac_address": "48:B0:2D:00:07:08"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ns-leaf-01-01": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 275,
+                    "y": 275
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.6",
+                        "mac_address": "48:B0:2D:00:09:60"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ns-leaf-01-02": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 550,
+                    "y": 275
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.7",
+                        "mac_address": "48:B0:2D:00:0B:B8"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ns-oob-leaf-01": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 275,
+                    "y": -275
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.8",
+                        "mac_address": "48:B0:2D:00:0E:10"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ns-spine-02-01": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 275,
+                    "y": 0
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.9",
+                        "mac_address": "48:B0:2D:00:10:68"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "ns-spine-02-02": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 550,
+                    "y": 0
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "cumulus-vx-5.13.0",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.10",
+                        "mac_address": "48:B0:2D:00:12:C0"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n01": {
+                "cpu": 16,
+                "memory": 65536,
+                "storage": 300,
+                "positioning": {
+                    "x": 275,
+                    "y": 825
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "host-passthrough",
+                "cpu_options": [],
+                "secureboot": false,
+                "os": "blank-300g",
+                "cdrom": "rhcos-ibi-4.22.14",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.11",
+                        "mac_address": "48:B0:2D:00:15:18"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": [
+                    "hd",
+                    "cdrom"
+                ],
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n02": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 550,
+                    "y": 825
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2",
+                    "ssse3"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.12",
+                        "mac_address": "48:B0:2D:00:17:70"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n03": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 765,
+                    "y": 765
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.13",
+                        "mac_address": "48:B0:2D:00:19:C8"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n04": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 1100,
+                    "y": 825
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.14",
+                        "mac_address": "48:B0:2D:00:1C:20"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n05": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 1375,
+                    "y": 825
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.15",
+                        "mac_address": "48:B0:2D:00:1E:78"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n06": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 1530,
+                    "y": 765
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.16",
+                        "mac_address": "48:B0:2D:00:20:D0"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n07": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 1785,
+                    "y": 765
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.17",
+                        "mac_address": "48:B0:2D:00:23:28"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            },
+            "hgx-su01-n08": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
+                "positioning": {
+                    "x": 2040,
+                    "y": 765
+                },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
+                "management_interfaces": {
+                    "eth0": {
+                        "ip": "192.168.200.18",
+                        "mac_address": "48:B0:2D:00:25:80"
+                    }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
+                }
+            }
+        },
+        "links": [
+            [
+                {
+                    "interface": "swp10s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:DC"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B5"
+                }
+            ],
+            [
+                {
+                    "interface": "swp10s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:DD"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B7"
+                }
+            ],
+            [
+                {
+                    "interface": "swp11s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:D1"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:09"
+                }
+            ],
+            [
+                {
+                    "interface": "swp11s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:1F"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:0B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp12s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:20"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:0D"
+                }
+            ],
+            [
+                {
+                    "interface": "swp12s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:21"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:0F"
+                }
+            ],
+            [
+                {
+                    "interface": "swp13s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:D2"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:61"
+                }
+            ],
+            [
+                {
+                    "interface": "swp13s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:22"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:63"
+                }
+            ],
+            [
+                {
+                    "interface": "swp14s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:23"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:65"
+                }
+            ],
+            [
+                {
+                    "interface": "swp14s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:24"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:67"
+                }
+            ],
+            [
+                {
+                    "interface": "swp15s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:D3"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:B9"
+                }
+            ],
+            [
+                {
+                    "interface": "swp15s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:25"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:BB"
+                }
+            ],
+            [
+                {
+                    "interface": "swp16s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:26"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:BD"
+                }
+            ],
+            [
+                {
+                    "interface": "swp16s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:27"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:BF"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:DA"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F2"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:DB"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F3"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:F0"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F4"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:F1"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F5"
+                }
+            ],
+            [
+                {
+                    "interface": "swp33s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:F8"
+                },
+                {
+                    "interface": "swp1s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:81"
+                }
+            ],
+            [
+                {
+                    "interface": "swp33s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:F9"
+                },
+                {
+                    "interface": "swp1s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:82"
+                }
+            ],
+            [
+                {
+                    "interface": "swp34s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:FA"
+                },
+                {
+                    "interface": "swp2s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:83"
+                }
+            ],
+            [
+                {
+                    "interface": "swp34s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:FB"
+                },
+                {
+                    "interface": "swp2s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:84"
+                }
+            ],
+            [
+                {
+                    "interface": "swp35s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:FC"
+                },
+                {
+                    "interface": "swp3s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:85"
+                }
+            ],
+            [
+                {
+                    "interface": "swp35s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:FD"
+                },
+                {
+                    "interface": "swp3s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:86"
+                }
+            ],
+            [
+                {
+                    "interface": "swp36s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:FE"
+                },
+                {
+                    "interface": "swp4s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:87"
+                }
+            ],
+            [
+                {
+                    "interface": "swp36s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:FF"
+                },
+                {
+                    "interface": "swp4s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:88"
+                }
+            ],
+            [
+                {
+                    "interface": "swp37s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:00"
+                },
+                {
+                    "interface": "swp5s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:89"
+                }
+            ],
+            [
+                {
+                    "interface": "swp37s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:01"
+                },
+                {
+                    "interface": "swp5s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:8A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp38s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:02"
+                },
+                {
+                    "interface": "swp6s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:8B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp38s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:03"
+                },
+                {
+                    "interface": "swp6s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:8C"
+                }
+            ],
+            [
+                {
+                    "interface": "swp39s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:04"
+                },
+                {
+                    "interface": "swp7s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:8D"
+                }
+            ],
+            [
+                {
+                    "interface": "swp39s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:05"
+                },
+                {
+                    "interface": "swp7s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:8E"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:06"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:4A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:07"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:4B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp40s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:08"
+                },
+                {
+                    "interface": "swp8s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:8F"
+                }
+            ],
+            [
+                {
+                    "interface": "swp40s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:09"
+                },
+                {
+                    "interface": "swp8s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:90"
+                }
+            ],
+            [
+                {
+                    "interface": "swp41s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:0A"
+                },
+                {
+                    "interface": "swp1s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:D9"
+                }
+            ],
+            [
+                {
+                    "interface": "swp41s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:0B"
+                },
+                {
+                    "interface": "swp1s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:DA"
+                }
+            ],
+            [
+                {
+                    "interface": "swp42s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:0C"
+                },
+                {
+                    "interface": "swp2s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:DB"
+                }
+            ],
+            [
+                {
+                    "interface": "swp42s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:0D"
+                },
+                {
+                    "interface": "swp2s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:DC"
+                }
+            ],
+            [
+                {
+                    "interface": "swp43s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:0E"
+                },
+                {
+                    "interface": "swp3s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:DD"
+                }
+            ],
+            [
+                {
+                    "interface": "swp43s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:0F"
+                },
+                {
+                    "interface": "swp3s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:DE"
+                }
+            ],
+            [
+                {
+                    "interface": "swp44s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:10"
+                },
+                {
+                    "interface": "swp4s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:DF"
+                }
+            ],
+            [
+                {
+                    "interface": "swp44s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:11"
+                },
+                {
+                    "interface": "swp4s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E0"
+                }
+            ],
+            [
+                {
+                    "interface": "swp45s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:12"
+                },
+                {
+                    "interface": "swp5s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E1"
+                }
+            ],
+            [
+                {
+                    "interface": "swp45s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:13"
+                },
+                {
+                    "interface": "swp5s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E2"
+                }
+            ],
+            [
+                {
+                    "interface": "swp46s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:14"
+                },
+                {
+                    "interface": "swp6s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E3"
+                }
+            ],
+            [
+                {
+                    "interface": "swp46s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:15"
+                },
+                {
+                    "interface": "swp6s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E4"
+                }
+            ],
+            [
+                {
+                    "interface": "swp47s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:16"
+                },
+                {
+                    "interface": "swp7s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E5"
+                }
+            ],
+            [
+                {
+                    "interface": "swp47s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:17"
+                },
+                {
+                    "interface": "swp7s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E6"
+                }
+            ],
+            [
+                {
+                    "interface": "swp48s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:18"
+                },
+                {
+                    "interface": "swp8s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E7"
+                }
+            ],
+            [
+                {
+                    "interface": "swp48s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:19"
+                },
+                {
+                    "interface": "swp8s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E8"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:1A"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:4C"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:1B"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:4D"
+                }
+            ],
+            [
+                {
+                    "interface": "swp5s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:1C"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:01"
+                }
+            ],
+            [
+                {
+                    "interface": "swp5s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:2E"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:03"
+                }
+            ],
+            [
+                {
+                    "interface": "swp6s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:2F"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:05"
+                }
+            ],
+            [
+                {
+                    "interface": "swp6s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:30"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:07"
+                }
+            ],
+            [
+                {
+                    "interface": "swp7s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:1D"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:59"
+                }
+            ],
+            [
+                {
+                    "interface": "swp7s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:D5"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:5B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp8s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:D7"
+                },
+                {
+                    "interface": "ens13",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:5D"
+                }
+            ],
+            [
+                {
+                    "interface": "swp8s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:D6"
+                },
+                {
+                    "interface": "ens15",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:5F"
+                }
+            ],
+            [
+                {
+                    "interface": "swp9s0",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:21:1E"
+                },
+                {
+                    "interface": "ens9",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B1"
+                }
+            ],
+            [
+                {
+                    "interface": "swp9s1",
+                    "node": "ew-leaf-su01-01-01",
+                    "mac": "48:B0:2D:00:20:D9"
+                },
+                {
+                    "interface": "ens11",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B3"
+                }
+            ],
+            [
+                {
+                    "interface": "swp10s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:78"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B6"
+                }
+            ],
+            [
+                {
+                    "interface": "swp10s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:79"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B8"
+                }
+            ],
+            [
+                {
+                    "interface": "swp11s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:29"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:0A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp11s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:7A"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:0C"
+                }
+            ],
+            [
+                {
+                    "interface": "swp12s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:7B"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:0E"
+                }
+            ],
+            [
+                {
+                    "interface": "swp12s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:7C"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:10"
+                }
+            ],
+            [
+                {
+                    "interface": "swp13s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:2A"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:62"
+                }
+            ],
+            [
+                {
+                    "interface": "swp13s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:7D"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:64"
+                }
+            ],
+            [
+                {
+                    "interface": "swp14s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:7E"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:66"
+                }
+            ],
+            [
+                {
+                    "interface": "swp14s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:7F"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:68"
+                }
+            ],
+            [
+                {
+                    "interface": "swp15s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:2B"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:BA"
+                }
+            ],
+            [
+                {
+                    "interface": "swp15s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:80"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:BC"
+                }
+            ],
+            [
+                {
+                    "interface": "swp16s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:81"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:BE"
+                }
+            ],
+            [
+                {
+                    "interface": "swp16s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:82"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:C0"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:32"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F6"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:33"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F7"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:48"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F8"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:49"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:F9"
+                }
+            ],
+            [
+                {
+                    "interface": "swp33s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:50"
+                },
+                {
+                    "interface": "swp9s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:91"
+                }
+            ],
+            [
+                {
+                    "interface": "swp33s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:51"
+                },
+                {
+                    "interface": "swp9s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:92"
+                }
+            ],
+            [
+                {
+                    "interface": "swp34s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:52"
+                },
+                {
+                    "interface": "swp10s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:93"
+                }
+            ],
+            [
+                {
+                    "interface": "swp34s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:53"
+                },
+                {
+                    "interface": "swp10s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:94"
+                }
+            ],
+            [
+                {
+                    "interface": "swp35s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:54"
+                },
+                {
+                    "interface": "swp11s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:95"
+                }
+            ],
+            [
+                {
+                    "interface": "swp35s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:55"
+                },
+                {
+                    "interface": "swp11s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:96"
+                }
+            ],
+            [
+                {
+                    "interface": "swp36s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:56"
+                },
+                {
+                    "interface": "swp12s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:97"
+                }
+            ],
+            [
+                {
+                    "interface": "swp36s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:57"
+                },
+                {
+                    "interface": "swp12s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:98"
+                }
+            ],
+            [
+                {
+                    "interface": "swp37s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:58"
+                },
+                {
+                    "interface": "swp13s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:99"
+                }
+            ],
+            [
+                {
+                    "interface": "swp37s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:59"
+                },
+                {
+                    "interface": "swp13s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:9A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp38s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:5A"
+                },
+                {
+                    "interface": "swp14s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:9B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp38s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:5B"
+                },
+                {
+                    "interface": "swp14s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:9C"
+                }
+            ],
+            [
+                {
+                    "interface": "swp39s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:5C"
+                },
+                {
+                    "interface": "swp15s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:9D"
+                }
+            ],
+            [
+                {
+                    "interface": "swp39s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:5D"
+                },
+                {
+                    "interface": "swp15s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:9E"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:5E"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:4E"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:5F"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:4F"
+                }
+            ],
+            [
+                {
+                    "interface": "swp40s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:60"
+                },
+                {
+                    "interface": "swp16s0",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:9F"
+                }
+            ],
+            [
+                {
+                    "interface": "swp40s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:61"
+                },
+                {
+                    "interface": "swp16s1",
+                    "node": "ew-spine-02-01",
+                    "mac": "48:B0:2D:00:25:A0"
+                }
+            ],
+            [
+                {
+                    "interface": "swp41s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:62"
+                },
+                {
+                    "interface": "swp9s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:E9"
+                }
+            ],
+            [
+                {
+                    "interface": "swp41s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:63"
+                },
+                {
+                    "interface": "swp9s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:EA"
+                }
+            ],
+            [
+                {
+                    "interface": "swp42s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:64"
+                },
+                {
+                    "interface": "swp10s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:EB"
+                }
+            ],
+            [
+                {
+                    "interface": "swp42s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:65"
+                },
+                {
+                    "interface": "swp10s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:EC"
+                }
+            ],
+            [
+                {
+                    "interface": "swp43s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:66"
+                },
+                {
+                    "interface": "swp11s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:ED"
+                }
+            ],
+            [
+                {
+                    "interface": "swp43s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:67"
+                },
+                {
+                    "interface": "swp11s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:EE"
+                }
+            ],
+            [
+                {
+                    "interface": "swp44s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:68"
+                },
+                {
+                    "interface": "swp12s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:EF"
+                }
+            ],
+            [
+                {
+                    "interface": "swp44s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:69"
+                },
+                {
+                    "interface": "swp12s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F0"
+                }
+            ],
+            [
+                {
+                    "interface": "swp45s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:6A"
+                },
+                {
+                    "interface": "swp13s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F1"
+                }
+            ],
+            [
+                {
+                    "interface": "swp45s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:6B"
+                },
+                {
+                    "interface": "swp13s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F2"
+                }
+            ],
+            [
+                {
+                    "interface": "swp46s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:6C"
+                },
+                {
+                    "interface": "swp14s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F3"
+                }
+            ],
+            [
+                {
+                    "interface": "swp46s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:6D"
+                },
+                {
+                    "interface": "swp14s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F4"
+                }
+            ],
+            [
+                {
+                    "interface": "swp47s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:6E"
+                },
+                {
+                    "interface": "swp15s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F5"
+                }
+            ],
+            [
+                {
+                    "interface": "swp47s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:6F"
+                },
+                {
+                    "interface": "swp15s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F6"
+                }
+            ],
+            [
+                {
+                    "interface": "swp48s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:70"
+                },
+                {
+                    "interface": "swp16s0",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F7"
+                }
+            ],
+            [
+                {
+                    "interface": "swp48s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:71"
+                },
+                {
+                    "interface": "swp16s1",
+                    "node": "ew-spine-02-02",
+                    "mac": "48:B0:2D:00:27:F8"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:72"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:50"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:73"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:51"
+                }
+            ],
+            [
+                {
+                    "interface": "swp5s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:74"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:02"
+                }
+            ],
+            [
+                {
+                    "interface": "swp5s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:2D"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:04"
+                }
+            ],
+            [
+                {
+                    "interface": "swp6s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:2E"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:06"
+                }
+            ],
+            [
+                {
+                    "interface": "swp6s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:2F"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:08"
+                }
+            ],
+            [
+                {
+                    "interface": "swp7s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:75"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:5A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp7s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:31"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:5C"
+                }
+            ],
+            [
+                {
+                    "interface": "swp8s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:34"
+                },
+                {
+                    "interface": "ens14",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:5E"
+                }
+            ],
+            [
+                {
+                    "interface": "swp8s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:35"
+                },
+                {
+                    "interface": "ens16",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:60"
+                }
+            ],
+            [
+                {
+                    "interface": "swp9s0",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:76"
+                },
+                {
+                    "interface": "ens10",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B2"
+                }
+            ],
+            [
+                {
+                    "interface": "swp9s1",
+                    "node": "ew-leaf-su01-01-02",
+                    "mac": "48:B0:2D:00:23:77"
+                },
+                {
+                    "interface": "ens12",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B4"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E3"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:FA"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E4"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:52"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E1"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:09"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E2"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:61"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:FC"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:B9"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:FD"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:11"
+                }
+            ],
+            [
+                {
+                    "interface": "swp49s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E6"
+                },
+                {
+                    "interface": "swp1s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:E9"
+                }
+            ],
+            [
+                {
+                    "interface": "swp49s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E7"
+                },
+                {
+                    "interface": "swp1s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:EA"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:0E"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:69"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:0F"
+                },
+                {
+                    "interface": "ens17",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:C1"
+                }
+            ],
+            [
+                {
+                    "interface": "swp50s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E8"
+                },
+                {
+                    "interface": "swp2s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:EB"
+                }
+            ],
+            [
+                {
+                    "interface": "swp50s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:E9"
+                },
+                {
+                    "interface": "swp2s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:EC"
+                }
+            ],
+            [
+                {
+                    "interface": "swp51s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:EA"
+                },
+                {
+                    "interface": "swp3s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:ED"
+                }
+            ],
+            [
+                {
+                    "interface": "swp51s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:EB"
+                },
+                {
+                    "interface": "swp3s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:EE"
+                }
+            ],
+            [
+                {
+                    "interface": "swp52s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:EC"
+                },
+                {
+                    "interface": "swp4s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:EF"
+                }
+            ],
+            [
+                {
+                    "interface": "swp52s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:ED"
+                },
+                {
+                    "interface": "swp4s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F0"
+                }
+            ],
+            [
+                {
+                    "interface": "swp53s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:EE"
+                },
+                {
+                    "interface": "swp5s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F1"
+                }
+            ],
+            [
+                {
+                    "interface": "swp53s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:EF"
+                },
+                {
+                    "interface": "swp5s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F2"
+                }
+            ],
+            [
+                {
+                    "interface": "swp54s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F0"
+                },
+                {
+                    "interface": "swp6s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F3"
+                }
+            ],
+            [
+                {
+                    "interface": "swp54s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F1"
+                },
+                {
+                    "interface": "swp6s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F4"
+                }
+            ],
+            [
+                {
+                    "interface": "swp55s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F2"
+                },
+                {
+                    "interface": "swp7s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F5"
+                }
+            ],
+            [
+                {
+                    "interface": "swp55s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F3"
+                },
+                {
+                    "interface": "swp7s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F6"
+                }
+            ],
+            [
+                {
+                    "interface": "swp56s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F4"
+                },
+                {
+                    "interface": "swp8s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F7"
+                }
+            ],
+            [
+                {
+                    "interface": "swp56s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F5"
+                },
+                {
+                    "interface": "swp8s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F8"
+                }
+            ],
+            [
+                {
+                    "interface": "swp57s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F6"
+                },
+                {
+                    "interface": "swp1s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:41"
+                }
+            ],
+            [
+                {
+                    "interface": "swp57s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F7"
+                },
+                {
+                    "interface": "swp1s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:42"
+                }
+            ],
+            [
+                {
+                    "interface": "swp58s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F8"
+                },
+                {
+                    "interface": "swp2s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:43"
+                }
+            ],
+            [
+                {
+                    "interface": "swp58s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:F9"
+                },
+                {
+                    "interface": "swp2s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:44"
+                }
+            ],
+            [
+                {
+                    "interface": "swp59s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:FA"
+                },
+                {
+                    "interface": "swp3s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:45"
+                }
+            ],
+            [
+                {
+                    "interface": "swp59s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:FB"
+                },
+                {
+                    "interface": "swp3s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:46"
+                }
+            ],
+            [
+                {
+                    "interface": "swp60s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:FE"
+                },
+                {
+                    "interface": "swp4s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:47"
+                }
+            ],
+            [
+                {
+                    "interface": "swp60s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2E:FF"
+                },
+                {
+                    "interface": "swp4s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:48"
+                }
+            ],
+            [
+                {
+                    "interface": "swp61s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:00"
+                },
+                {
+                    "interface": "swp5s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:49"
+                }
+            ],
+            [
+                {
+                    "interface": "swp61s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:01"
+                },
+                {
+                    "interface": "swp5s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:4A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp62s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:02"
+                },
+                {
+                    "interface": "swp6s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:4B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp62s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:03"
+                },
+                {
+                    "interface": "swp6s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:4C"
+                }
+            ],
+            [
+                {
+                    "interface": "swp63s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:04"
+                },
+                {
+                    "interface": "swp7s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:4D"
+                }
+            ],
+            [
+                {
+                    "interface": "swp63s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:05"
+                },
+                {
+                    "interface": "swp7s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:4E"
+                }
+            ],
+            [
+                {
+                    "interface": "swp64s0",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:06"
+                },
+                {
+                    "interface": "swp8s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:4F"
+                }
+            ],
+            [
+                {
+                    "interface": "swp64s1",
+                    "node": "ns-leaf-01-01",
+                    "mac": "48:B0:2D:00:2F:07"
+                },
+                {
+                    "interface": "swp8s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:50"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:3D"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:FB"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:3E"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:53"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:56"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:0A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:57"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:62"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:39"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:BA"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:3A"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:12"
+                }
+            ],
+            [
+                {
+                    "interface": "swp49s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:40"
+                },
+                {
+                    "interface": "swp9s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:F9"
+                }
+            ],
+            [
+                {
+                    "interface": "swp49s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:41"
+                },
+                {
+                    "interface": "swp9s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:FA"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:3B"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:6A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:3C"
+                },
+                {
+                    "interface": "ens18",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:C2"
+                }
+            ],
+            [
+                {
+                    "interface": "swp50s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:42"
+                },
+                {
+                    "interface": "swp10s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:FB"
+                }
+            ],
+            [
+                {
+                    "interface": "swp50s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:43"
+                },
+                {
+                    "interface": "swp10s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:FC"
+                }
+            ],
+            [
+                {
+                    "interface": "swp51s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:44"
+                },
+                {
+                    "interface": "swp11s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:FD"
+                }
+            ],
+            [
+                {
+                    "interface": "swp51s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:45"
+                },
+                {
+                    "interface": "swp11s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:FE"
+                }
+            ],
+            [
+                {
+                    "interface": "swp52s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:46"
+                },
+                {
+                    "interface": "swp12s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:35:FF"
+                }
+            ],
+            [
+                {
+                    "interface": "swp52s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:47"
+                },
+                {
+                    "interface": "swp12s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:00"
+                }
+            ],
+            [
+                {
+                    "interface": "swp53s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:48"
+                },
+                {
+                    "interface": "swp13s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:01"
+                }
+            ],
+            [
+                {
+                    "interface": "swp53s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:49"
+                },
+                {
+                    "interface": "swp13s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:02"
+                }
+            ],
+            [
+                {
+                    "interface": "swp54s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:4A"
+                },
+                {
+                    "interface": "swp14s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:03"
+                }
+            ],
+            [
+                {
+                    "interface": "swp54s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:4B"
+                },
+                {
+                    "interface": "swp14s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:04"
+                }
+            ],
+            [
+                {
+                    "interface": "swp55s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:4C"
+                },
+                {
+                    "interface": "swp15s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:05"
+                }
+            ],
+            [
+                {
+                    "interface": "swp55s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:4D"
+                },
+                {
+                    "interface": "swp15s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:06"
+                }
+            ],
+            [
+                {
+                    "interface": "swp56s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:4E"
+                },
+                {
+                    "interface": "swp16s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:07"
+                }
+            ],
+            [
+                {
+                    "interface": "swp56s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:4F"
+                },
+                {
+                    "interface": "swp16s1",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:08"
+                }
+            ],
+            [
+                {
+                    "interface": "swp57s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:50"
+                },
+                {
+                    "interface": "swp9s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:51"
+                }
+            ],
+            [
+                {
+                    "interface": "swp57s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:51"
+                },
+                {
+                    "interface": "swp9s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:52"
+                }
+            ],
+            [
+                {
+                    "interface": "swp58s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:52"
+                },
+                {
+                    "interface": "swp10s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:53"
+                }
+            ],
+            [
+                {
+                    "interface": "swp58s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:53"
+                },
+                {
+                    "interface": "swp10s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:54"
+                }
+            ],
+            [
+                {
+                    "interface": "swp59s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:54"
+                },
+                {
+                    "interface": "swp11s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:55"
+                }
+            ],
+            [
+                {
+                    "interface": "swp59s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:55"
+                },
+                {
+                    "interface": "swp11s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:56"
+                }
+            ],
+            [
+                {
+                    "interface": "swp60s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:58"
+                },
+                {
+                    "interface": "swp12s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:57"
+                }
+            ],
+            [
+                {
+                    "interface": "swp60s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:59"
+                },
+                {
+                    "interface": "swp12s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:58"
+                }
+            ],
+            [
+                {
+                    "interface": "swp61s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:5A"
+                },
+                {
+                    "interface": "swp13s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:59"
+                }
+            ],
+            [
+                {
+                    "interface": "swp61s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:5B"
+                },
+                {
+                    "interface": "swp13s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:5A"
+                }
+            ],
+            [
+                {
+                    "interface": "swp62s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:5C"
+                },
+                {
+                    "interface": "swp14s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:5B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp62s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:5D"
+                },
+                {
+                    "interface": "swp14s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:5C"
+                }
+            ],
+            [
+                {
+                    "interface": "swp63s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:5E"
+                },
+                {
+                    "interface": "swp15s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:5D"
+                }
+            ],
+            [
+                {
+                    "interface": "swp63s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:5F"
+                },
+                {
+                    "interface": "swp15s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:5E"
+                }
+            ],
+            [
+                {
+                    "interface": "swp64s0",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:60"
+                },
+                {
+                    "interface": "swp16s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:5F"
+                }
+            ],
+            [
+                {
+                    "interface": "swp64s1",
+                    "node": "ns-leaf-01-02",
+                    "mac": "48:B0:2D:00:31:61"
+                },
+                {
+                    "interface": "swp16s1",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:60"
+                }
+            ],
+            [
+                {
+                    "interface": "swp1",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:91"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n01",
+                    "mac": "48:B0:2D:00:3C:FC"
+                }
+            ],
+            [
+                {
+                    "interface": "swp2",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:99"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n02",
+                    "mac": "48:B0:2D:00:3F:54"
+                }
+            ],
+            [
+                {
+                    "interface": "swp3",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:9E"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n03",
+                    "mac": "48:B0:2D:00:00:0B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp4",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:9F"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n04",
+                    "mac": "48:B0:2D:00:02:63"
+                }
+            ],
+            [
+                {
+                    "interface": "swp47",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:9B"
+                },
+                {
+                    "interface": "swp17s0",
+                    "node": "ns-spine-02-01",
+                    "mac": "48:B0:2D:00:36:09"
+                }
+            ],
+            [
+                {
+                    "interface": "swp48",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:9C"
+                },
+                {
+                    "interface": "swp17s0",
+                    "node": "ns-spine-02-02",
+                    "mac": "48:B0:2D:00:38:61"
+                }
+            ],
+            [
+                {
+                    "interface": "swp5",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:A0"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n05",
+                    "mac": "48:B0:2D:00:04:BB"
+                }
+            ],
+            [
+                {
+                    "interface": "swp6",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:A1"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n06",
+                    "mac": "48:B0:2D:00:07:13"
+                }
+            ],
+            [
+                {
+                    "interface": "swp7",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:A2"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n07",
+                    "mac": "48:B0:2D:00:09:6B"
+                }
+            ],
+            [
+                {
+                    "interface": "swp8",
+                    "node": "ns-oob-leaf-01",
+                    "mac": "48:B0:2D:00:33:A3"
+                },
+                {
+                    "interface": "ens19",
+                    "node": "hgx-su01-n08",
+                    "mac": "48:B0:2D:00:0B:C3"
+                }
+            ]
+        ],
+        "oob": {
+            "nodes": {
+                "oob-mgmt-server": {
+                    "cpu": 4,
+                    "memory": 4096,
+                    "storage": 20,
+                    "positioning": {
+                        "x": 0,
+                        "y": 0
+                    }
+                },
+                "oob-mgmt-switch": {
+                    "cpu": 5,
+                    "memory": 5120,
+                    "storage": 10,
+                    "positioning": {
+                        "x": 0,
+                        "y": 0
+                    }
+                }
+            },
+            "enable_dhcp": true
+        }
+    },
+    "name": "Topology-NoDPU"
+}

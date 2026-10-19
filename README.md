@@ -273,6 +273,46 @@ That starts SOCKS on `127.0.0.1:1080` through the target jump host and launches 
 
 That password file is created with the config ISO. Do not use `.cache/kubeadmin-password.ocp` (seed). If the page does not load, `oc get co console` and `oc get pods -n openshift-console` show whether the route is up yet.
 
+## NVIDIA DSX fabric with an IBI node (`Topology-NoDPU.json`)
+
+`Topology-NoDPU.json` (repo root) is a hand-written Air manifest, not a `dsx-air` spec — do not run `dsx-air deploy`/`ibi target` against it. It models an NVIDIA DSX reference fabric: 4 Cumulus VX switches (`ew-leaf-*`, `ew-spine-*`), 3 OOB-side switches (`ns-leaf-*`, `ns-spine-*`, `ns-oob-leaf-01`), and 8 compute nodes `hgx-su01-n01`..`n08`. `hgx-su01-n01` has been repointed from `generic/ubuntu2404` to the same IBI target config as `dsx-ibi-target` (16 vCPU / 64 GB / 300 GB, `os: blank-300g`, `cdrom: rhcos-ibi-4.22.14`, `boot: [hd, cdrom]`) — the rest stay plain Ubuntu nodes. Every node pins its own `management_interfaces` IP/MAC on `192.168.200.0/24`, so OOB addressing is static, not Air DHCP order.
+
+### Bring it up
+
+Confirm the images this manifest references already exist in the Air org — `cumulus-vx-5.13.0`, `generic/ubuntu2404`, `blank-300g`, and `rhcos-ibi-4.22.14` (the last one is the same live ISO built in [Image-based installation](#image-based-installation-on-dsx-air) step 3; reuse it, don't rebuild it). Import is all-or-nothing, so a missing image fails the whole simulation.
+
+Import directly as an Air simulation manifest (this is the older, non-spec path — see `scripts/import_topology.py` for the same pattern pointed at a different file):
+
+```bash
+cd scripts
+uv run python -c "
+from upload_discovery_iso import get_api
+from pathlib import Path
+api = get_api()
+sim = api.simulations.import_from_simulation_manifest(
+    simulation_manifest=Path('../Topology-NoDPU.json'),
+    attempt_start=True,
+)
+print(f'Simulation created: id={sim.id} name={sim.name!r} state={sim.state!r}')
+"
+```
+
+Or import `Topology-NoDPU.json` from the Air UI's "Import Simulation" dialog — same result. The sim name will be `Topology-NoDPU` (from the manifest's `name` field).
+
+### Connect
+
+The switches and the 7 plain Ubuntu nodes come up normally; watch them from the Air console. `hgx-su01-n01` boots the live IBI ISO against a blank disk, same as `dsx-ibi-target`, but at `192.168.200.11` instead of `.2`. Get the jump-host SSH command from the Air UI (simulation → `oob-mgmt-server`), then:
+
+```bash
+ping -c 2 192.168.200.11                 # from the jump host
+ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11
+journalctl -b | grep -E 'IBI preparation|Images Failed|Finished SNO'
+```
+
+Wait for `IBI preparation process finished successfully!` with `Images Failed to Pull: 0` before doing anything else (same sequence as [step 4](#4-create-the-target) above).
+
+**The `dsx-air ibi` subcommands do not work against this node as-is.** `config-image` / `apply-config` / `wait-oob` / `tunnel` / `console` all hardcode the target node as `ocp-cp-0` at `192.168.200.2` (`dsx_air/ibi.py`'s `DEFAULT_NODE`/`OOB_NODE_IP`), and there's no `examples/*.yaml` spec for this hand-built sim anyway. To finish the install, follow [step 5](#5-build-the-configuration-iso) and [step 6](#6-apply-site-config) by hand, substituting `hgx-su01-n01` / `192.168.200.11` everywhere `ocp-cp-0` / `192.168.200.2` appears — `uv run dsx-air ibi config-image --spec examples/ibi-target.yaml` still works standalone for generating the config ISO (it doesn't touch the sim), but the `scp`/SSH steps that copy it onto the node need the `.11` address.
+
 ## Operate existing `ocp-cluster`
 
 Operate the shared **`ocp-cluster`** simulation. Do not run `deploy --replace`
