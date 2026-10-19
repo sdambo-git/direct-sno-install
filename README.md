@@ -275,43 +275,91 @@ That password file is created with the config ISO. Do not use `.cache/kubeadmin-
 
 ## NVIDIA DSX fabric with an IBI node (`Topology-NoDPU.json`)
 
-`Topology-NoDPU.json` (repo root) is a hand-written Air manifest, not a `dsx-air` spec — do not run `dsx-air deploy`/`ibi target` against it. It models an NVIDIA DSX reference fabric: 4 Cumulus VX switches (`ew-leaf-*`, `ew-spine-*`), 3 OOB-side switches (`ns-leaf-*`, `ns-spine-*`, `ns-oob-leaf-01`), and 8 compute nodes `hgx-su01-n01`..`n08`. `hgx-su01-n01` has been repointed from `generic/ubuntu2404` to the same IBI target config as `dsx-ibi-target` (16 vCPU / 64 GB / 300 GB, `os: blank-300g`, `cdrom: rhcos-ibi-4.22.14`, `boot: [hd, cdrom]`) — the rest stay plain Ubuntu nodes. Every node pins its own `management_interfaces` IP/MAC on `192.168.200.0/24`, so OOB addressing is static, not Air DHCP order.
+`Topology-NoDPU.json` (repo root) is a hand-written Air manifest, not a `dsx-air` spec — do not run `dsx-air deploy`/`ibi target` against it. It models an NVIDIA DSX reference fabric: 4 Cumulus VX switches (`ew-leaf-*`, `ew-spine-*`), 3 OOB-side switches (`ns-leaf-*`, `ns-spine-*`, `ns-oob-leaf-01`), and 8 compute nodes. One of them is named **`ocp-cp-0`** (renamed from `hgx-su01-n01`, matching the `ocp-cp-0` name the `dsx-air ibi` CLI hardcodes elsewhere) and repointed from `generic/ubuntu2404` to the same IBI target config as `dsx-ibi-target` (16 vCPU / 64 GB / 300 GB, `os: blank-300g`, `cdrom: rhcos-ibi-4.22.14`, `boot: [hd, cdrom]`) — the rest stay plain Ubuntu nodes (`hgx-su01-n02`..`n08`). Every node pins its own `management_interfaces` IP/MAC on `192.168.200.0/24`, so OOB addressing is static, not Air DHCP order; `ocp-cp-0` sits at **`192.168.200.11`** (not `.2` like the plain `dsx-ibi-target` lab).
 
-### Bring it up
+This whole sequence (import → IBI prep → reboot → apply config → verify) has been run end-to-end against this file and confirmed working.
+
+### 1. Bring it up
 
 Confirm the images this manifest references already exist in the Air org — `cumulus-vx-5.13.0`, `generic/ubuntu2404`, `blank-300g`, and `rhcos-ibi-4.22.14` (the last one is the same live ISO built in [Image-based installation](#image-based-installation-on-dsx-air) step 3; reuse it, don't rebuild it). Import is all-or-nothing, so a missing image fails the whole simulation.
 
-Import directly as an Air simulation manifest (this is the older, non-spec path — see `scripts/import_topology.py` for the same pattern pointed at a different file):
+Import directly as an Air simulation manifest — this is the older, non-spec path (`scripts/import_topology.py`), which takes the manifest path as an argument and waits for the sim to go `ACTIVE`, printing node states and the jump-host SSH command:
 
 ```bash
 cd scripts
-uv run python -c "
-from upload_discovery_iso import get_api
-from pathlib import Path
-api = get_api()
-sim = api.simulations.import_from_simulation_manifest(
-    simulation_manifest=Path('../Topology-NoDPU.json'),
-    attempt_start=True,
-)
-print(f'Simulation created: id={sim.id} name={sim.name!r} state={sim.state!r}')
+uv run import_topology.py ../Topology-NoDPU.json
+```
+
+Or import `Topology-NoDPU.json` from the Air UI's "Import Simulation" dialog — same result, but you'll need `bootstrap_jump_host.py` or the Air UI to get the jump host SSH command yourself. The sim name will be `Topology-NoDPU` (from the manifest's `name` field).
+
+If the jump host prints "Connection refused" right after import, that's the documented race (SSH not listening yet) — retry in ~15s; `import_topology.py` already does this for you.
+
+### 2. Wait for IBI prep, then reboot once
+
+`ocp-cp-0` boots the live IBI ISO and restores the seed automatically, same as `dsx-ibi-target`:
+
+```bash
+ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11 \
+  "journalctl -b | grep -E 'IBI preparation|Images Failed|Finished SNO'"
+```
+
+Wait for `IBI preparation process finished successfully!` with `Images Failed to Pull: 0` (~9 minutes). At that point the OS is written to disk but the node is **still running the live ISO** — boot order is `[hd, cdrom]`, so one reboot is needed to actually boot off the now-populated disk:
+
+```bash
+ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11 "sudo systemctl reboot"
+```
+
+The node's SSH host key changes across this reboot (installed RHCOS vs. live ISO) — `ssh-keygen -R 192.168.200.11` if you hit "REMOTE HOST IDENTIFICATION HAS CHANGED". After reboot, confirm `lca-cli` is polling for config (this is the gotcha from [step 6](#6-apply-site-config) above — if you don't see this, the waiter isn't running yet, reboot again):
+
+```bash
+ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11 \
+  "journalctl -b | grep 'waiting for block device'"
+```
+
+### 3. Build and apply the site config
+
+`config-image` doesn't touch Air at all — it only needs a cluster name and writes `install-config.yaml`/`image-based-config.yaml` locally with hostname `ocp-cp-0` by default, which now matches this node exactly. Reuse `examples/ibi-target.yaml` as-is:
+
+```bash
+cd ..
+uv run dsx-air ibi config-image --spec examples/ibi-target.yaml
+```
+
+(Skip this if `ibi-config-iso-workdir/imagebasedconfig.iso` + `auth/kubeconfig` already exist from a previous run — see the note under [step 5](#5-build-the-configuration-iso) about reusing a valid cluster identity instead of regenerating.)
+
+`dsx-air ibi apply-config` **cannot** be used here — `apply_config_via_ssh` hardcodes the target IP as `192.168.200.2` (`dsx_air/ibi.py`'s `OOB_NODE_IP`), and there's no `examples/*.yaml` spec with `simulation.name: Topology-NoDPU` anyway. Apply it by hand with `.11`, while the wait loop from step 2 is running:
+
+```bash
+scp -o ProxyJump=ubuntu@<jump-host>:<port> -r \
+  .cache/ibi-config-extract/cluster-configuration \
+  core@192.168.200.11:cluster-configuration
+
+ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11 "
+  sudo mkdir -p /opt/openshift &&
+  sudo rm -rf /opt/openshift/cluster-configuration &&
+  sudo cp -a \$HOME/cluster-configuration /opt/openshift/cluster-configuration &&
+  sudo chmod -R a+rX /opt/openshift/cluster-configuration
 "
 ```
 
-Or import `Topology-NoDPU.json` from the Air UI's "Import Simulation" dialog — same result. The sim name will be `Topology-NoDPU` (from the manifest's `name` field).
-
-### Connect
-
-The switches and the 7 plain Ubuntu nodes come up normally; watch them from the Air console. `hgx-su01-n01` boots the live IBI ISO against a blank disk, same as `dsx-ibi-target`, but at `192.168.200.11` instead of `.2`. Get the jump-host SSH command from the Air UI (simulation → `oob-mgmt-server`), then:
+`lca-cli` picks this up within seconds (no reboot needed) and runs `recert`, sets the hostname, restarts `NetworkManager`, and enables `kubelet`. Watch it finish:
 
 ```bash
-ping -c 2 192.168.200.11                 # from the jump host
-ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11
-journalctl -b | grep -E 'IBI preparation|Images Failed|Finished SNO'
+ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11 "journalctl -b -f"
 ```
 
-Wait for `IBI preparation process finished successfully!` with `Images Failed to Pull: 0` before doing anything else (same sequence as [step 4](#4-create-the-target) above).
+### 4. Check it's working
 
-**The `dsx-air ibi` subcommands do not work against this node as-is.** `config-image` / `apply-config` / `wait-oob` / `tunnel` / `console` all hardcode the target node as `ocp-cp-0` at `192.168.200.2` (`dsx_air/ibi.py`'s `DEFAULT_NODE`/`OOB_NODE_IP`), and there's no `examples/*.yaml` spec for this hand-built sim anyway. To finish the install, follow [step 5](#5-build-the-configuration-iso) and [step 6](#6-apply-site-config) by hand, substituting `hgx-su01-n01` / `192.168.200.11` everywhere `ocp-cp-0` / `192.168.200.2` appears — `uv run dsx-air ibi config-image --spec examples/ibi-target.yaml` still works standalone for generating the config ISO (it doesn't touch the sim), but the `scp`/SSH steps that copy it onto the node need the `.11` address.
+```bash
+export KUBECONFIG=$PWD/ibi-config-iso-workdir/auth/kubeconfig
+ssh -f -N -o ProxyCommand="ssh -W %h:%p -p <jump-port> ubuntu@<jump-host>" \
+  -L 127.0.0.1:6443:192.168.200.11:6443 core@192.168.200.11
+
+oc get nodes --server=https://127.0.0.1:6443 --insecure-skip-tls-verify
+oc get co --server=https://127.0.0.1:6443 --insecure-skip-tls-verify
+```
+
+Expect `ocp-cp-0` `Ready` with `control-plane,master`, and cluster operators `AVAILABLE=True` (give `network` a minute if it's still rolling out multus — that's normal). `dsx-air tunnel`/`console --spec` don't resolve this sim's node correctly out of the box (same `192.168.200.2` default as `apply-config`, via `dsx_air/air_status.py`'s `api_forward_ip()`); either keep using a manual `ssh -L`, or set `API_FORWARD=192.168.200.11` and point `--spec` at a new spec file with `simulation.name: Topology-NoDPU` to get the CLI tunnel/console working.
 
 ## Operate existing `ocp-cluster`
 

@@ -246,7 +246,7 @@
                     "uefi": false
                 }
             },
-            "hgx-su01-n01": {
+            "ocp-cp-0": {
                 "cpu": 16,
                 "memory": 65536,
                 "storage": 300,
@@ -679,7 +679,7 @@
                 },
                 {
                     "interface": "ens9",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F2"
                 }
             ],
@@ -691,7 +691,7 @@
                 },
                 {
                     "interface": "ens11",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F3"
                 }
             ],
@@ -703,7 +703,7 @@
                 },
                 {
                     "interface": "ens13",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F4"
                 }
             ],
@@ -715,7 +715,7 @@
                 },
                 {
                     "interface": "ens15",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F5"
                 }
             ],
@@ -1447,7 +1447,7 @@
                 },
                 {
                     "interface": "ens10",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F6"
                 }
             ],
@@ -1459,7 +1459,7 @@
                 },
                 {
                     "interface": "ens12",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F7"
                 }
             ],
@@ -1471,7 +1471,7 @@
                 },
                 {
                     "interface": "ens14",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F8"
                 }
             ],
@@ -1483,7 +1483,7 @@
                 },
                 {
                     "interface": "ens16",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:F9"
                 }
             ],
@@ -2047,7 +2047,7 @@
                 },
                 {
                     "interface": "ens17",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:FA"
                 }
             ],
@@ -2527,7 +2527,7 @@
                 },
                 {
                     "interface": "ens18",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:FB"
                 }
             ],
@@ -3007,7 +3007,7 @@
                 },
                 {
                     "interface": "ens19",
-                    "node": "hgx-su01-n01",
+                    "node": "ocp-cp-0",
                     "mac": "48:B0:2D:00:3C:FC"
                 }
             ],
