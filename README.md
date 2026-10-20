@@ -49,6 +49,7 @@ not hardcode secrets in the repo.
 | API VIP (multinode) | `API_VIP` (default `192.168.200.10`) |
 | Ingress VIP (multinode) | `INGRESS_VIP` (default `192.168.200.11`) |
 | Additional NTP sources | `ADDITIONAL_NTP_SOURCE` (default `192.168.200.1,time.google.com`) |
+| Host discovery timeout | `DISCOVERY_TIMEOUT` seconds (default: `max(900, 100 * total topology nodes)`) |
 | Control plane node | `CONTROL_PLANE_NODE` (default: first `*cp*` name in topology) |
 | Base DNS domain | `BASE_DNS_DOMAIN` (default `dsx.air.local`) |
 | Local discovery ISO path | `DISCOVERY_ISO_PATH` / `ISO_PATH` (default `.cache/dsxair-discovery.iso`) |
@@ -670,10 +671,20 @@ Timed out after 900s waiting for 3 host(s) with OOB IPv4 (last seen: no hosts ye
 Step 7 FAILED: 06_wait_for_host_ipv4.py exited with status 1
 ```
 
-This is almost always the 3 `ocp-cp-*` VMs just taking longer than the 900s
-default to boot off the discovery ISO and register — not a real failure, and
-not a reason to restart from step 1. Check whether hosts actually registered
-since the timeout (they often have, a few minutes late):
+`06_wait_for_host_ipv4.py`'s default timeout (`env_config.discovery_timeout_seconds()`)
+now scales with the **total** node count in the topology, not just the
+expected host count — `max(900, 100 * total_nodes)` seconds, so
+`Topology-NoDPU.json`'s 17 nodes get ~28 minutes instead of the flat 15. This
+is because boot contention comes from Air starting *every* VM in the sim
+concurrently (17 here vs. 3 for plain `topology-multinode.json`), not from
+how many of them are actual OCP hosts, so the 3 `ocp-cp-*` VMs take longer to
+register than their host count alone would suggest. Override with
+`DISCOVERY_TIMEOUT=<seconds>` if 28 minutes still isn't enough (e.g. a
+heavily loaded Air org).
+
+If you still hit the timeout, it's not necessarily a real failure, and not a
+reason to restart from step 1 — check whether hosts registered right after
+the cutoff:
 
 ```bash
 uv run python -c "
@@ -684,14 +695,14 @@ for h in cluster_hosts(ai, 'ocp-nodpu'):
 "
 ```
 
-If some/all are missing, just retry the wait with the **same full env** as
-before (all of `CLUSTER_PROFILE`, `CLUSTER_NAME`, `TOPOLOGY_PATH`,
-`EXPECTED_HOSTS`, `API_VIP`, `INGRESS_VIP` — a partial env makes this script
-look for the wrong simulation and fail with a confusing "No simulation named
-'ocp-cluster' found"), and a longer timeout if needed:
+If some/all are missing, retry the wait with the **same full env** as before
+(all of `CLUSTER_PROFILE`, `CLUSTER_NAME`, `TOPOLOGY_PATH`, `EXPECTED_HOSTS`,
+`API_VIP`, `INGRESS_VIP` — a partial env makes this script look for the
+wrong simulation and fail with a confusing "No simulation named
+'ocp-cluster' found"):
 
 ```bash
-uv run 06_wait_for_host_ipv4.py --min-hosts 3 --require-known --timeout 900
+uv run 06_wait_for_host_ipv4.py --min-hosts 3 --require-known
 ```
 
 `No connectivity to the majority of hosts in the cluster` / NTP warnings

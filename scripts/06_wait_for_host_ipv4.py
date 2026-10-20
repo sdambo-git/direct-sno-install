@@ -51,8 +51,13 @@ def main() -> None:
     parser.add_argument(
         "--timeout",
         type=int,
-        default=900,
-        help="Seconds to wait before failing (default: 900).",
+        default=None,
+        help=(
+            "Seconds to wait before failing (default: "
+            "env_config.discovery_timeout_seconds(), 900s floor, scaled up "
+            "for topologies with many total nodes; override with "
+            "DISCOVERY_TIMEOUT)."
+        ),
     )
     parser.add_argument(
         "--interval",
@@ -75,15 +80,16 @@ def main() -> None:
 
     name = env_config.cluster_name()
     min_hosts = args.min_hosts if args.min_hosts is not None else env_config.expected_hosts()
+    timeout = args.timeout if args.timeout is not None else env_config.discovery_timeout_seconds()
     ai = get_client(quiet=True)
-    deadline = time.monotonic() + args.timeout
+    deadline = time.monotonic() + timeout
     tracker = PollTracker()
     last_summary = "no hosts yet"
     poll_num = 0
     ntp_patched = False
 
     print(
-        f"Waiting up to {args.timeout}s for {min_hosts} host(s) on cluster {name!r} "
+        f"Waiting up to {timeout}s for {min_hosts} host(s) on cluster {name!r} "
         f"with IPv4 in {env_config.OOB_IPV4_PREFIX}0/24 ..."
     )
 
@@ -166,7 +172,7 @@ def main() -> None:
 
         if time.monotonic() > deadline:
             raise SystemExit(
-                f"Timed out after {args.timeout}s waiting for {min_hosts} host(s) with OOB IPv4 "
+                f"Timed out after {timeout}s waiting for {min_hosts} host(s) with OOB IPv4 "
                 f"(last seen: {last_summary}).\n"
                 f"{format_issues(issues + check_air_discovery_boot())}"
             )

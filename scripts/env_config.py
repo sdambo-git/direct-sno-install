@@ -204,6 +204,23 @@ def expected_hosts() -> int:
     return len(topology_node_names()) or 1
 
 
+def discovery_timeout_seconds() -> int:
+    """Default wait for host discovery (``06_wait_for_host_ipv4.py --timeout``).
+
+    Boot contention scales with how many VMs Air has to start concurrently
+    for the whole simulation, not with how many of them are actual OCP
+    hosts — a topology that mixes a handful of OCP nodes with a lot of
+    unrelated infrastructure (e.g. fabric switches) takes longer to settle
+    than one with the same host count and nothing else. Scale off total
+    topology size instead of ``expected_hosts()``. Override with
+    DISCOVERY_TIMEOUT (seconds).
+    """
+    raw = os.environ.get("DISCOVERY_TIMEOUT", "").strip()
+    if raw:
+        return int(raw)
+    return max(900, 100 * len(topology_node_names()))
+
+
 def api_vip() -> str:
     return os.environ.get("API_VIP", DEFAULT_API_VIP).strip() or DEFAULT_API_VIP
 
