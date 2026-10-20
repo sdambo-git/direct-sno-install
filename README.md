@@ -663,6 +663,46 @@ state between them. `08_verify_cluster.py` prints the exact tunnel command
 with the real jump-host port/FQDN filled in; use it in the verification
 section below.
 
+### If host discovery times out with "no hosts yet"
+
+```
+Timed out after 900s waiting for 3 host(s) with OOB IPv4 (last seen: no hosts yet).
+Step 7 FAILED: 06_wait_for_host_ipv4.py exited with status 1
+```
+
+This is almost always the 3 `ocp-cp-*` VMs just taking longer than the 900s
+default to boot off the discovery ISO and register — not a real failure, and
+not a reason to restart from step 1. Check whether hosts actually registered
+since the timeout (they often have, a few minutes late):
+
+```bash
+uv run python -c "
+from assisted_common import get_client, cluster_hosts
+ai = get_client(quiet=False)
+for h in cluster_hosts(ai, 'ocp-nodpu'):
+    print(h.get('requested_hostname'), h.get('status'), h.get('status_info'))
+"
+```
+
+If some/all are missing, just retry the wait with the **same full env** as
+before (all of `CLUSTER_PROFILE`, `CLUSTER_NAME`, `TOPOLOGY_PATH`,
+`EXPECTED_HOSTS`, `API_VIP`, `INGRESS_VIP` — a partial env makes this script
+look for the wrong simulation and fail with a confusing "No simulation named
+'ocp-cluster' found"), and a longer timeout if needed:
+
+```bash
+uv run 06_wait_for_host_ipv4.py --min-hosts 3 --require-known --timeout 900
+```
+
+`No connectivity to the majority of hosts in the cluster` / NTP warnings
+while hosts trickle in are expected — see the NTP note in Option A above,
+they self-resolve. Once discovery succeeds, resume the orchestrator from
+where it left off instead of re-running everything:
+
+```bash
+uv run run_cluster.py --from 8 --yes
+```
+
 ### Check it's working with `oc`
 
 Orchestrator step 11 (`08_verify_cluster.py`) copies `oc` and the kubeconfig
