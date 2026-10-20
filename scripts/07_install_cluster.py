@@ -9,8 +9,21 @@ During install, polls for action-required AI states. Does **not** toggle
 boot/cdrom — the blank-disk topology uses permanent boot ``["hd", "cdrom"]``
 (see README.md).
 
-    uv run 07_install_cluster.py
+Both commands below run the same configuration step (host role assignment,
+machine network CIDR, API/Ingress VIPs). The difference is whether install
+actually starts afterward:
+
     uv run 07_install_cluster.py --configure-only
+        Configures the cluster, then stops. Use this as a gate: inspect the
+        resulting config (e.g. in the Assisted Installer UI) and confirm
+        roles/networking/VIPs look right *before* committing to install.
+
+    uv run 07_install_cluster.py
+        Configures the cluster (same as above), then waits for it to reach
+        'ready', starts the install, and polls until it completes
+        (~40-60 minutes), downloading kubeconfig + kubeadmin password at
+        the end.
+
     uv run 07_install_cluster.py --legacy-boot-to-disk   # discouraged
 """
 from __future__ import annotations
@@ -253,11 +266,18 @@ def _download_credentials(ai, name: str, dest: Path) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--configure-only",
         action="store_true",
-        help="Only apply machine network / VIP updates; do not start install.",
+        help=(
+            "Apply host role assignment / machine network / VIP config, then "
+            "stop without starting install. Use as a gate to verify config "
+            "before re-running without this flag to actually install."
+        ),
     )
     parser.add_argument(
         "--legacy-boot-to-disk",
