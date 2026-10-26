@@ -9,6 +9,32 @@ This fork supports **SNO** (`topology.json`) and an R&D **multinode profile**
 (`topology-multinode.json`: 3-node HA, 3 control-plane masters). See
 [Multinode profile](#multinode-profile-3-node-ha) below.
 
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Auth and inputs (env / files)](#auth-and-inputs-env--files)
+- [Quick path (happy path)](#quick-path-happy-path)
+- [Important: use Air's OOB network, not an `"outbound"` link](#important-use-airs-oob-network-not-an-outbound-link--link-local-ips-dont-work-here)
+- [Important: don't pin `management_mac` in `topology.json`](#important-dont-pin-management_mac-in-topologyjson)
+- [Important: boot order stays `["hd", "cdrom"]`](#important-boot-order-stays-hd-cdrom--dont-toggle-it)
+- [Important: Air images must exist *before* you import the topology](#important-air-images-must-exist-before-you-import-the-topology)
+- [Step 1 — Create the Assisted Installer cluster and download the discovery ISO](#step-1--create-the-assisted-installer-cluster-and-download-the-discovery-iso)
+  - [Optional fallback — Assisted Installer console](#optional-fallback--assisted-installer-console)
+- [Step 2 — Upload the discovery ISO to Air](#step-2--upload-the-discovery-iso-to-air)
+- [Step 3 — Create and upload `blank-100g`](#step-3--create-and-upload-blank-100g)
+- [Step 4 — Import the topology and boot the node](#step-4--import-the-topology-and-boot-the-node)
+- [Step 5 — Wait for host discovery, then install](#step-5--wait-for-host-discovery-then-install)
+- [Step 6 — Verify](#step-6--verify)
+- [Multinode profile (3-node HA)](#multinode-profile-3-node-ha)
+  - [Multinode quick path](#multinode-quick-path)
+  - [Phased validation](#phased-validation)
+- [NVIDIA DSX fabric multinode HA (`Topology-NoDPU.json`)](#nvidia-dsx-fabric-multinode-ha-topology-nodpujson)
+  - [Bring it up from scratch](#bring-it-up-from-scratch)
+  - [If host discovery times out with "no hosts yet"](#if-host-discovery-times-out-with-no-hosts-yet)
+  - [Check it's working with `oc`](#check-its-working-with-oc)
+- [Scripts reference](#scripts-reference)
+- [About `scripts/air_common.py` and `scripts/env_config.py`](#about-scriptsair_commonpy-and-scriptsenv_configpy)
+
 ## Prerequisites
 
 - Red Hat pull secret from
