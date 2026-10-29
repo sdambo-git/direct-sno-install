@@ -763,6 +763,14 @@ oc get nodes
 oc get co
 ```
 
+`.cache/kubeconfig.ocp-nodpu` is downloaded automatically by `07_install_cluster.py`
+(`_download_credentials`) once the install completes — no manual copy needed.
+`08_verify_cluster.py` picks the same file by default (`.cache/kubeconfig.$CLUSTER_NAME`),
+but a `KUBECONFIG` env var already set in your shell (e.g. left over from an
+unrelated IBI/SNO run) silently overrides that and makes step 11 copy the
+wrong cluster's kubeconfig to the jump host. `unset KUBECONFIG` before running
+step 11, or point it explicitly at `.cache/kubeconfig.ocp-nodpu`.
+
 Expect `ocp-cp-0`, `ocp-cp-1`, `ocp-cp-2` all `Ready` with `master`, and
 cluster operators `AVAILABLE=True`. For the web console, forward the
 **Ingress VIP** (`192.168.200.20`, not `.11`) instead of the plain
