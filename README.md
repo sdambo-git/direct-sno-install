@@ -438,25 +438,11 @@ oc get nodes
 ```
 
 To open the OpenShift **web console**, start a **second** SSH tunnel for the
-**Ingress VIP**, as the same user as the API tunnel, so SSH still offers the
-Air UI key. Do **not** `sudo ssh` — that runs as root, drops your agent, and
-often offers `id_ed25519` instead. Keep the API tunnel.
-
-If binding 443/80 fails with "Permission denied", allow unprivileged ports
-once, then retry the `ssh` as yourself:
-
-```bash
-sudo sysctl net.ipv4.ip_unprivileged_port_start=80
-
-# Terminal 2 — leave this running too (do not include 6443; that is terminal 1)
-ssh -N \
-  -L 127.0.0.1:443:192.168.200.11:443 \
-  -L 127.0.0.1:80:192.168.200.11:80 \
-  -p <port> ubuntu@<jump-host-fqdn>
-```
-
-Then open `https://console-openshift-console.apps.ocp-cluster.dsx.air.local`.
-The kubeadmin password is in `.cache/` next to the kubeconfig.
+**Ingress VIP** (`192.168.200.11`), as the same user as the API tunnel. The
+full command — including the unprivileged-ports fix if binding 443/80 fails
+with "Permission denied" — is in *Check it's working with `oc`* in the NVIDIA
+DSX fabric section below; it's identical except this profile's Ingress VIP
+is `192.168.200.11`, not `.20`.
 
 Default VIPs: `API_VIP=192.168.200.10`, `INGRESS_VIP=192.168.200.11`.
 Override if they conflict with DHCP leases.
@@ -668,6 +654,28 @@ oc get nodes
 oc get co
 ```
 
+To open the OpenShift **web console**, start a **second** SSH tunnel for the
+**Ingress VIP** — `192.168.200.20` here, not the plain multinode profile's
+`.11` — as the same user as the API tunnel, so SSH still offers the Air UI
+key. Do **not** `sudo ssh` — that runs as root, drops your agent, and often
+offers `id_ed25519` instead. Keep the API tunnel.
+
+If binding 443/80 fails with "Permission denied", allow unprivileged ports
+once, then retry the `ssh` as yourself:
+
+```bash
+sudo sysctl net.ipv4.ip_unprivileged_port_start=80
+
+# Terminal 2 — leave this running too (do not include 6443; that is terminal 1)
+ssh -N \
+  -L 127.0.0.1:443:192.168.200.20:443 \
+  -L 127.0.0.1:80:192.168.200.20:80 \
+  -p <port> ubuntu@<jump-host-fqdn>
+```
+
+Then open `https://console-openshift-console.apps.ocp-nodpu.dsx.air.local`.
+The kubeadmin password is in `.cache/` next to the kubeconfig.
+
 `.cache/kubeconfig.ocp-nodpu` is downloaded automatically by `07_install_cluster.py`
 (`_download_credentials`) once the install completes — no manual copy needed.
 `08_verify_cluster.py` picks the same file by default (`.cache/kubeconfig.$CLUSTER_NAME`),
@@ -677,10 +685,7 @@ wrong cluster's kubeconfig to the jump host. `unset KUBECONFIG` before running
 step 11, or point it explicitly at `.cache/kubeconfig.ocp-nodpu`.
 
 Expect `ocp-cp-0`, `ocp-cp-1`, `ocp-cp-2` all `Ready` with `master`, and
-cluster operators `AVAILABLE=True`. For the web console, forward the
-**Ingress VIP** (`192.168.200.20`, not `.11`) instead of the plain
-multinode profile's `.11` in a second tunnel, then open
-`https://console-openshift-console.apps.ocp-nodpu.dsx.air.local`.
+cluster operators `AVAILABLE=True`.
 
 ## Scripts reference
 
