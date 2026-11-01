@@ -114,64 +114,11 @@ new name) it deletes and re-imports automatically. Pass `--force` yourself
 to always recreate regardless. If the simulation is stuck in an `INVALID`
 state that isn't a plain cdrom mismatch, delete it in the Air UI and re-run.
 
-## Important: use Air's OOB network, not an `"outbound"` link — link-local IPs don't work here
+## use Air's OOB network.
 
-We hit this for real too, later than the CD-ROM issue: `topology.json` used
-to wire `eth0` straight to `"outbound"`, which is the setup that gives you
-the `169.254.0.2/24`/`169.254.0.1` addressing referenced throughout this
-repo's other docs. That works fine for plain SSH/internet-only labs — but
-**not** for this one. Assisted Installer explicitly rejects link-local
-addresses (`169.254.0.0/16`) as a machine network. The symptom is exactly
-this: the host registers under Host discovery (so it did phone home fine),
-but every network column (Active NIC/IPv4/IPv6/MAC) is blank and the
-Networking step shows "No subnets are currently available" — the installer
-saw the address, recognized it as link-local, and discarded it.
-
-The fix: use Air's **OOB management network** instead. It hands out real,
-routable `192.168.200.x/24`-range addresses (via its own DHCP/DNS/NAT on
-`oob-mgmt-server`), not link-local ones. `topology.json` now has `"links":
-[]` and no `"oob": false` anywhere — per Air's docs, omitting `oob`
-entirely defaults it to **on**, which automatically connects the node's
-`eth0` to the OOB network with no explicit link needed. That single change
-is enough — no other topology fields need to differ.
-
-Note there's a second, unrelated way to end up with the exact same
-`169.254.x.x` symptom even *after* switching to the OOB network: if
-`topology.json` pins a `management_mac` that doesn't match what Air
-actually presents, DHCP fails and the OS self-assigns a link-local address
-as a fallback (RFC 3927 APIPA) — same address range, completely different
-cause (a stale pinned MAC, not the wrong link type). See "Important: don't
-pin `management_mac`" below if you hit `169.254.x.x` again after this fix.
-
-One consequence: you won't know the node's actual IP until after it boots
-(it's DHCP-assigned from the `192.168.200.0/24` pool based on MAC). Check it
-either from the Assisted Installer's Host discovery table once the columns
-populate (they will now, since the address is a valid subnet), or from
-Air's node console. `scripts/06_wait_for_host_ipv4.py` polls until that
-OOB address appears.
-
-**Don't be alarmed if you see a `169.254.x.x` address while debugging
-`oob-mgmt-server` itself** — that's expected and unrelated to the fix above.
-`oob-mgmt-server`'s own `eth0` is Air's normal internal uplink (it's how
-Air manages that node), separate from the `192.168.200.0/24` OOB subnet it
-serves out to everyone else. Checking `ip a` on `oob-mgmt-server` you should
-see: `eth0` with a `169.254.x.x` address (normal, Air's internal uplink —
-ignore it) and `eth1` with `192.168.200.1` (the actual DHCP/gateway address
-for the OOB subnet — this is the healthy sign to look for). The address
-that actually matters for your install is the one DHCP hands out to
-`sno-cluster` itself (e.g. `192.168.200.2`), not anything on
-`oob-mgmt-server`'s `eth0`.
-
-Also worth knowing: this OOB network is still NAT'd/private — outbound
-internet access from the node works out of the box, but *inbound* access
-from outside Air (your own browser/`oc` hitting the API or console URLs
-after install) does not, by default. Once the cluster is up, you'll need to
-either open a Service (SSH/HTTPS on the node's port 6443/443) to expose it
-externally and point DNS at that, or SSH into `oob-mgmt-server` as a jump
-host and run `oc` from there. `scripts/01_create_simulation.py` now sets up
-that jump host automatically (see `scripts/04_create_jump_host_service.py`)
-so the ssh command is ready and waiting by the time you get to verification —
-it's not a blocker for getting the install itself to complete either way.
+use Air's **OOB management network**.
+which set routable `192.168.200.x/24`-range addresses (via its own DHCP/DNS/NAT on
+`oob-mgmt-server`). 
 
 **First-login password on `oob-mgmt-server`:** the auto-provisioned jump host
 ships with user `ubuntu` / factory password `nvidia` and *requires* a password
@@ -184,32 +131,7 @@ bootstrap automatically (via `expect`). Override the new password with
 `JUMP_HOST_PASSWORD` (default `redhat`). Re-run manually with
 `uv run bootstrap_jump_host.py` if needed.
 
-## Important: don't pin `management_mac` in `topology.json`
-
-This is the *other* way to end up with a rejected `169.254.x.x` machine
-network — see the note at the end of the OOB-network section above. That
-section's fix (switching from `"outbound"` to the OOB network) is about
-picking the right network entirely; this one is about a pinned MAC breaking
-DHCP *within* an already-correct OOB setup, causing the node to
-self-assign a link-local address as a fallback instead of getting its real
-`192.168.200.x` lease.
-
-We hit this for real too: an earlier version of `topology.json` pinned a
-specific MAC via `"management_mac": "48:B0:2D:00:00:12"` on the
-`sno-cluster` node, matched by a static reservation we'd also hand-added to
-`oob-mgmt-server`'s `/etc/dhcp/dhcpd.hosts`. The node never got a DHCP
-lease. Digging in with `tcpdump` on `oob-mgmt-server` showed the
-`DHCPDISCOVER` traffic was arriving from a *different* MAC than the one
-pinned in `topology.json` — Air simply doesn't honor `management_mac` for
-nodes on the implicit/auto-provisioned OOB network; the interface Air
-actually creates presents its own MAC regardless of what you pin in the
-manifest. Both the SDK and the raw API confirmed this: `node.management_mac`
-came back `None` on the live node no matter what the topology said.
-
-The fix is to **not set `management_mac` at all** — delete the field
-entirely and let Air assign/present whatever MAC it wants. Its own
-DHCP server then matches its own interface correctly, since there's no
-stale static reservation fighting it. Before/after:
+**not set `management_mac` at all** — in the topology json file.
 
 ```jsonc
 // Before (breaks DHCP on the OOB network — don't do this):
