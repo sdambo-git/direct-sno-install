@@ -18,13 +18,14 @@ This fork supports **SNO** (`topology.json`) and an R&D **multinode profile**
 - [Important: don't pin `management_mac` in `topology.json`](#important-dont-pin-management_mac-in-topologyjson)
 - [Important: boot order stays `["hd", "cdrom"]`](#important-boot-order-stays-hd-cdrom--dont-toggle-it)
 - [Important: Air images must exist *before* you import the topology](#important-air-images-must-exist-before-you-import-the-topology)
-- [Step 1 — Create the Assisted Installer cluster and download the discovery ISO](#step-1--create-the-assisted-installer-cluster-and-download-the-discovery-iso)
-  - [Optional fallback — Assisted Installer console](#optional-fallback--assisted-installer-console)
-- [Step 2 — Upload the discovery ISO to Air](#step-2--upload-the-discovery-iso-to-air)
-- [Step 3 — Create and upload `blank-100g`](#step-3--create-and-upload-blank-100g)
-- [Step 4 — Import the topology and boot the node](#step-4--import-the-topology-and-boot-the-node)
-- [Step 5 — Wait for host discovery, then install](#step-5--wait-for-host-discovery-then-install)
-- [Step 6 — Verify](#step-6--verify)
+- [What the orchestrator does, step by step](#what-the-orchestrator-does-step-by-step)
+  - [Step 1 — Create the Assisted Installer cluster and download the discovery ISO](#step-1--create-the-assisted-installer-cluster-and-download-the-discovery-iso)
+    - [Optional fallback — Assisted Installer console](#optional-fallback--assisted-installer-console)
+  - [Step 2 — Upload the discovery ISO to Air](#step-2--upload-the-discovery-iso-to-air)
+  - [Step 3 — Create and upload `blank-100g`](#step-3--create-and-upload-blank-100g)
+  - [Step 4 — Import the topology and boot the node](#step-4--import-the-topology-and-boot-the-node)
+  - [Step 5 — Wait for host discovery, then install](#step-5--wait-for-host-discovery-then-install)
+  - [Step 6 — Verify](#step-6--verify)
 - [Multinode profile (3-node HA)](multi-node.md#multinode-profile-3-node-ha)
 - [NVIDIA DSX fabric multinode HA (`Topology-NoDPU.json`)](#nvidia-dsx-fabric-multinode-ha-topology-nodpujson)
   - [Bring it up from scratch](#bring-it-up-from-scratch)
@@ -76,32 +77,45 @@ further optional overrides (e.g. `AIR_NGC_ORG`, `DISCOVERY_TIMEOUT`,
 
 ## Quick path (happy path)
 
-Run from `scripts/` (scripts import each other by module name):
+`scripts/run_cluster.py` wraps the whole install — SNO and multinode alike —
+behind one entry point, so you don't have to copy-paste each `uv run ...`
+command by hand. Run from `scripts/` (scripts import each other by module
+name):
 
 ```bash
 cd scripts
-export AIR_API_KEY=...          # or AIR_API_KEY_FILE=...
-export AI_OFFLINETOKEN=...      # or AI_OFFLINETOKEN_FILE=...
-export PULL_SECRET_PATH=~/Downloads/pull-secret
-export OCP_VERSION=4.19
+export AIR_API_KEY_FILE=~/.config/dsx-air/air-api-key
+export AI_OFFLINETOKEN_FILE=~/.config/dsx-air/ai-offlinetoken
+export PULL_SECRET_PATH=~/.config/dsx-air/pull-secret.json
+export OCP_VERSION=4.22
 
-uv run 00_create_discovery_iso.py
-uv run upload_discovery_iso.py
-uv run upload_blank_disk.py
-uv run 01_create_simulation.py
-uv run 06_wait_for_host_ipv4.py
+uv run run_cluster.py --all --yes   # everything, accepting every prompt's default
 ```
 
-Then finish networking / install in the Assisted Installer UI (Step 5
-below). Console-only ISO creation remains a valid fallback if you prefer
-not to use `ailib`.
+Other ways to drive it:
 
-If a simulation named `sno-cluster` already exists, `01_create_simulation.py`
-checks whether its nodes' attached discovery ISO still matches
-`topology.json`; if it's stale (e.g. after a `--force` ISO rebuild under a
-new name) it deletes and re-imports automatically. Pass `--force` yourself
-to always recreate regardless. If the simulation is stuck in an `INVALID`
-state that isn't a plain cdrom mismatch, delete it in the Air UI and re-run.
+```bash
+uv run run_cluster.py              # interactive menu — pick a step, a range, or 'all'
+uv run run_cluster.py --list       # print the numbered steps and exit
+uv run run_cluster.py --run 3-6    # run a specific range non-interactively
+uv run run_cluster.py --recover ocp-cp-1   # ad hoc: rebuild + re-attach discovery ISO
+```
+
+It runs the exact scripts documented in
+[What the orchestrator does, step by step](#what-the-orchestrator-does-step-by-step)
+below (nothing new happening under the hood), tracks per-step pass/fail for
+the session so you can retry just the step that failed, and on the
+multinode profile it automates the "mint a fresh ISO name and update every
+node's `cdrom`" step that's manual in the walkthrough. Every prompt has a
+safe default (shown when you answer, or picked automatically under
+`--yes`/non-interactive stdin), so it's CI-friendly too. Full reference:
+`scripts/SCRIPTS.md`.
+
+For the 3-node HA profile add `CLUSTER_PROFILE=multinode` — see
+[multi-node.md](multi-node.md). For the NVIDIA DSX fabric topology see
+[NVIDIA DSX fabric multinode HA](#nvidia-dsx-fabric-multinode-ha-topology-nodpujson)
+below. If you'd rather not use `ailib` at all, the Assisted Installer
+console fallback in Step 1 below is still valid.
 
 ## Important: use Air's OOB network, not an `"outbound"` link — link-local IPs don't work here
 
@@ -207,7 +221,30 @@ already exist in your org at **import time**:
 `secureboot`, `"features": {"uefi": ...}`) rather than older public-doc
 placeholders.
 
-## Step 1 — Create the Assisted Installer cluster and download the discovery ISO
+## What the orchestrator does, step by step
+
+The 11 steps `run_cluster.py` runs (`--list` prints the same list):
+
+| # | Step | Script |
+|---|------|--------|
+| 1 | Delete existing Assisted Installer cluster (optional, destructive) | `delete_assisted_cluster.py` |
+| 2 | Create Assisted Installer cluster + download discovery ISO | `00_create_discovery_iso.py` |
+| 3 | Upload discovery ISO to Air (fresh name for multinode + topology update) | `upload_discovery_iso.py` |
+| 4 | Upload blank-100g disk image to Air | `upload_blank_disk.py` |
+| 5 | Verify topology image alignment (read-only) | `verify_topology_alignment.py` |
+| 6 | Import topology + start Air simulation | `01_create_simulation.py` |
+| 7 | Wait for host discovery (OOB IPv4 from Assisted Installer) | `06_wait_for_host_ipv4.py` |
+| 8 | Assign host roles (master/worker, multinode only) | `assign_host_roles.py` |
+| 9 | Configure cluster networking (gate, no install) | `07_install_cluster.py --configure-only` |
+| 10 | Install the OpenShift cluster | `07_install_cluster.py` |
+| 11 | Install oc, kubeconfig, and cluster DNS on the jump host | `08_verify_cluster.py` |
+
+The walkthrough below runs the same flow by hand — Step 1 = orchestrator
+step 2, Step 2 = 3, Step 3 = 4, Step 4 = 6, Step 5 = 7–10, Step 6 = 11.
+Use it when a specific step fails and you want to re-run or debug just
+that piece, or when you'd rather drive the Assisted Installer UI yourself.
+
+### Step 1 — Create the Assisted Installer cluster and download the discovery ISO
 
 Preferred (SaaS API via `ailib`):
 
@@ -225,7 +262,7 @@ delete and recreate. To tear down only the Assisted Installer objects:
 uv run delete_assisted_cluster.py --yes
 ```
 
-### Optional fallback — Assisted Installer console
+#### Optional fallback — Assisted Installer console
 
 1. Go to `console.redhat.com/openshift/assisted-installer/clusters` →
    **Create cluster**.
@@ -238,7 +275,7 @@ uv run delete_assisted_cluster.py --yes
 5. Download the **Discovery ISO** (minimal is fine) and point
    `DISCOVERY_ISO_PATH` at that file before Step 2.
 
-## Step 2 — Upload the discovery ISO to Air
+### Step 2 — Upload the discovery ISO to Air
 
 ```bash
 uv run upload_discovery_iso.py
@@ -251,7 +288,7 @@ and can serve a stale CDROM cache even when it's not. If you need fresh
 content, upload under a new `--name` and update `topology.json`'s `"cdrom"`
 field to match.
 
-## Step 3 — Create and upload `blank-100g`
+### Step 3 — Create and upload `blank-100g`
 
 ```bash
 uv run upload_blank_disk.py
@@ -261,7 +298,7 @@ Creates a sparse local 100G qcow2 (if needed) and uploads it as Air image
 `blank-100g` (must match `topology.json` `"os"`). Skips if present — its
 content never needs to change.
 
-## Step 4 — Import the topology and boot the node
+### Step 4 — Import the topology and boot the node
 
 ```bash
 uv run 01_create_simulation.py
@@ -284,7 +321,7 @@ To force discovery again after a failed install, rebuild the node
 (`node.rebuild()`) rather than toggling `boot`/`cdrom` — see the boot-order
 note above.
 
-## Step 5 — Wait for host discovery, then install
+### Step 5 — Wait for host discovery, then install
 
 ```bash
 uv run 06_wait_for_host_ipv4.py
@@ -305,7 +342,7 @@ Then in `console.redhat.com/openshift/assisted-installer/clusters/<id>`:
 4. Wait for validations to turn green, then **Install cluster**.
 5. Download `kubeconfig` and the `kubeadmin` password when finished.
 
-## Step 6 — Verify
+### Step 6 — Verify
 
 ```bash
 export KUBECONFIG=~/Downloads/kubeconfig
