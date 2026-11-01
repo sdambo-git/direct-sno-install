@@ -14,7 +14,7 @@ This fork supports **SNO** (`topology.json`) and an R&D **multinode profile**
 - [Prerequisites](#prerequisites)
 - [Auth and inputs (env / files)](#auth-and-inputs-env--files)
 - [Quick path (happy path)](#quick-path-happy-path)
-- [Important: use Air's OOB network, not an `"outbound"` link](#important-use-airs-oob-network-not-an-outbound-link--link-local-ips-dont-work-here)
+- [Important: use Air's OOB network, not an `"outbound"` link](#important-use-airs-oob-network)
 - [Important: don't pin `management_mac` in `topology.json`](#important-dont-pin-management_mac-in-topologyjson)
 - [Important: boot order stays `["hd", "cdrom"]`](#important-boot-order-stays-hd-cdrom--dont-toggle-it)
 - [Important: Air images must exist *before* you import the topology](#important-air-images-must-exist-before-you-import-the-topology)
@@ -117,7 +117,7 @@ For the 3-node HA profile add `CLUSTER_PROFILE=multinode` — see
 below. If you'd rather not use `ailib` at all, the Assisted Installer
 console fallback in Step 1 below is still valid.
 
-## Important: use Air's OOB network, not an `"outbound"` link — link-local IPs don't work here
+## Important: use Air's OOB network
 
 OpenShift uses Air's **OOB management network**, which hands out routable `192.168.200.x/24`-range addresses (via its own DHCP/DNS/NAT on
 `oob-mgmt-server`). 
