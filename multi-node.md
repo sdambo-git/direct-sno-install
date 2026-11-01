@@ -4,6 +4,13 @@ Split out of the main [README.md](README.md), which keeps the prerequisites,
 auth inputs, the SNO flow, and the NVIDIA DSX fabric (`Topology-NoDPU.json`)
 variant.
 
+## Contents
+
+- [Multinode quick path](#multinode-quick-path)
+  - [Option A — `run_cluster.py` orchestrator (recommended)](#option-a--run_clusterpy-orchestrator-recommended)
+  - [Option B — manual, step by step](#option-b--manual-step-by-step)
+- [Phased validation](#phased-validation)
+
 R&D profile for greenfield **3 control-plane HA** on DSX Air. Uses the same
 blank-disk boot pattern as SNO; adds Assisted Installer VIPs and host role
 assignment (all CP nodes are `master`).
@@ -20,9 +27,9 @@ Tear down other **ACTIVE** simulations in the Air UI before importing
 `topology-multinode.json` — Air refuses a second import with the same name,
 and quota is shared across the org.
 
-### Multinode quick path
+## Multinode quick path
 
-#### Option A — `run_cluster.py` orchestrator (recommended)
+### Option A — `run_cluster.py` orchestrator (recommended)
 
 `scripts/run_cluster.py` wraps every step below (both this multinode profile
 and the SNO flow) behind one entry point, so you don't have to copy-paste
@@ -52,7 +59,7 @@ rewriting `topology-multinode.json` for you. Every prompt has a safe default
 (shown when you answer, or picked automatically under `--yes`/non-interactive
 stdin), so it's CI-friendly too. Full reference: `scripts/SCRIPTS.md`.
 
-#### Option B — manual, step by step
+### Option B — manual, step by step
 
 ```bash
 cd scripts
@@ -118,7 +125,7 @@ and update every node's `cdrom` in `topology-multinode.json`. There is no
 `--replace` — Air rejects overwriting content on an image already in use by
 nodes and may serve a stale CDROM cache even when it's not in use.
 
-### Phased validation
+## Phased validation
 
 | Phase | Success | If it fails |
 |-------|---------|-------------|
