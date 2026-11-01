@@ -114,14 +114,13 @@ new name) it deletes and re-imports automatically. Pass `--force` yourself
 to always recreate regardless. If the simulation is stuck in an `INVALID`
 state that isn't a plain cdrom mismatch, delete it in the Air UI and re-run.
 
-## use Air's OOB network.
+## Important: use Air's OOB network, not an `"outbound"` link — link-local IPs don't work here
 
-OpenShift uses Air's **OOB management network**.
-which set routable `192.168.200.x/24`-range addresses (via its own DHCP/DNS/NAT on
+OpenShift uses Air's **OOB management network**, which hands out routable `192.168.200.x/24`-range addresses (via its own DHCP/DNS/NAT on
 `oob-mgmt-server`). 
 
 **First-login password on `oob-mgmt-server`:** the auto-provisioned jump host
-ships with user `ubuntu` / factory password  and *requires* a password
+ships with user `ubuntu` / a factory password and *requires* a password
 change on first SSH. Pubkey login uses the SSH key you added in the **Air UI**
 (not `SSH_PUBLIC_KEY_PATH`, which is only for the OpenShift nodes). Until the
 password is changed, pubkey auth connects but every command fails with
@@ -131,7 +130,11 @@ bootstrap automatically (via `expect`). Override the new password with
 `JUMP_HOST_PASSWORD` (default `redhat`). Re-run manually with
 `uv run bootstrap_jump_host.py` if needed.
 
-**dont set `management_mac` at all** — in the topology json file.
+## Important: don't pin `management_mac` in `topology.json`
+
+Don't set the field at all — delete it entirely and let Air assign whatever
+MAC it wants. A stale pinned MAC breaks DHCP on the OOB network (the node
+self-assigns a link-local `169.254.x.x` address instead of its real lease).
 
 ```json
 {
@@ -168,7 +171,7 @@ debug DHCP yourself), read it back from the live node/interface via the API
 after the simulation is `ACTIVE` — don't try to pre-declare it in the
 manifest.
 
-— `sno-cluster` got its real `192.168.200.2` OOB lease on the first try,
+**Result:** `sno-cluster` got its real `192.168.200.2` OOB lease on the first try,
 instead of falling back to a link-local address.
 
 ## Important: boot order stays `["hd", "cdrom"]` — don't toggle it
@@ -192,7 +195,9 @@ entire install lifecycle:
   very next boot naturally falls through to `cdrom` again — same
   `["hd", "cdrom"]` order the whole time.
 
-*firmware's device preference*, not what's actually on the disk. If `hd`
+Why not flip the `boot` field instead? Changing `boot`/`cdrom` via
+`node.update()` only ever changes *firmware's device preference*, not what's
+actually on the disk. If `hd`
 already has a real OS on it, setting `boot` to `cdrom`-first and back again
 doesn't un-write that disk — you'd still boot the old install. The only
 thing that reliably gets you back to a fresh discovery boot is reformatting
@@ -494,8 +499,10 @@ verify) has been run end-to-end against this file and confirmed working.
 
 **Two things don't match the plain `topology-multinode.json` defaults:**
 
-1. **VIP addresses.** `API_VIP=192.168.200.19`,
-   `INGRESS_VIP=192.168.200.20`.
+1. **VIP addresses.** Use `API_VIP=192.168.200.19` and
+   `INGRESS_VIP=192.168.200.20` instead — the defaults collide with
+   addresses already statically claimed by fabric/compute nodes in this
+   topology.
 2. **Role assignment needed a code fix.** `assign_topology_host_roles()`
    used to require *every* node in the topology manifest to match an
    Assisted Installer host — fine for `topology-multinode.json` (3 nodes,
