@@ -60,7 +60,6 @@ not hardcode secrets in the repo.
 | Input | How to set |
 |---|---|
 | Air API key | `AIR_API_KEY` or `AIR_API_KEY_FILE` — NGC **Personal** key (your user) or **Service** key (org automation). Not OpenShift `kubeadmin`. |
-| Air NGC org | `AIR_NGC_ORG` (optional). Display name of the NGC org, e.g. `Ami_RH_NV_TECH_PRTNR`. Sent as `Nv-Ngc-Org`. |
 | Assisted Installer offline token | `AI_OFFLINETOKEN` or `AI_OFFLINETOKEN_FILE` |
 | Pull secret | `PULL_SECRET_PATH` (path to JSON file) |
 | SSH public key (OpenShift nodes) | `SSH_PUBLIC_KEY_PATH` (default `~/.ssh/id_ed25519.pub` or `id_rsa.pub`) — baked into the discovery ISO |
@@ -70,20 +69,12 @@ not hardcode secrets in the repo.
 | Cluster profile | `CLUSTER_PROFILE` (`sno` default, or `multinode`) |
 | Topology manifest | `TOPOLOGY_PATH` (default `topology.json` or `topology-multinode.json`) |
 | Expected AI hosts | `EXPECTED_HOSTS` (default: node count in topology) |
-| Control plane count | `CONTROL_PLANE_COUNT` (default: CP nodes in topology) |
-| Control plane nodes | `CONTROL_PLANE_NODES` (comma-separated override) |
 | API VIP (multinode) | `API_VIP` (default `192.168.200.10`) |
 | Ingress VIP (multinode) | `INGRESS_VIP` (default `192.168.200.11`) |
-| Additional NTP sources | `ADDITIONAL_NTP_SOURCE` (default `192.168.200.1,time.google.com`) |
-| Host discovery timeout | `DISCOVERY_TIMEOUT` seconds (default: `max(900, 100 * total topology nodes)`) |
-| Control plane node | `CONTROL_PLANE_NODE` (default: first `*cp*` name in topology) |
-| Base DNS domain | `BASE_DNS_DOMAIN` (default `dsx.air.local`) |
-| Local discovery ISO path | `DISCOVERY_ISO_PATH` / `ISO_PATH` (default `.cache/dsxair-discovery.iso`) |
-| Jump host new password | `JUMP_HOST_PASSWORD` (default `redhat`) |
-| Jump host factory password | `JUMP_HOST_INITIAL_PASSWORD` (default image value or `nvidia`) |
-| `oc` client version | `OC_CLIENT_VERSION` (default `4.12.0`, or `{OCP_VERSION}.0`) |
 
-Shared resolution lives in `scripts/env_config.py`.
+Shared resolution lives in `scripts/env_config.py`, which also documents the
+further optional overrides (e.g. `AIR_NGC_ORG`, `DISCOVERY_TIMEOUT`,
+`ADDITIONAL_NTP_SOURCE`, `BASE_DNS_DOMAIN`, `JUMP_HOST_PASSWORD`).
 
 ## Quick path (happy path)
 
