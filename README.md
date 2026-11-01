@@ -14,7 +14,7 @@ This fork supports **SNO** (`topology.json`) and an R&D **multinode profile**
 - [Prerequisites](#prerequisites)
 - [Auth and inputs (env / files)](#auth-and-inputs-env--files)
 - [Quick path (happy path)](#quick-path-happy-path)
-- [Important: use Air's OOB network, not an `"outbound"` link](#important-use-airs-oob-network)
+- [Important: use Air's OOB network](#important-use-airs-oob-network)
 - [Important: don't pin `management_mac` in `topology.json`](#important-dont-pin-management_mac-in-topologyjson)
 - [Important: boot order stays `["hd", "cdrom"]`](#important-boot-order-stays-hd-cdrom--dont-toggle-it)
 - [Important: Air images must exist *before* you import the topology](#important-air-images-must-exist-before-you-import-the-topology)
