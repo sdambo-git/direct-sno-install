@@ -116,12 +116,12 @@ state that isn't a plain cdrom mismatch, delete it in the Air UI and re-run.
 
 ## use Air's OOB network.
 
-use Air's **OOB management network**.
+OpenShift uses Air's **OOB management network**.
 which set routable `192.168.200.x/24`-range addresses (via its own DHCP/DNS/NAT on
 `oob-mgmt-server`). 
 
 **First-login password on `oob-mgmt-server`:** the auto-provisioned jump host
-ships with user `ubuntu` / factory password `nvidia` and *requires* a password
+ships with user `ubuntu` / factory password  and *requires* a password
 change on first SSH. Pubkey login uses the SSH key you added in the **Air UI**
 (not `SSH_PUBLIC_KEY_PATH`, which is only for the OpenShift nodes). Until the
 password is changed, pubkey auth connects but every command fails with
@@ -131,16 +131,7 @@ bootstrap automatically (via `expect`). Override the new password with
 `JUMP_HOST_PASSWORD` (default `redhat`). Re-run manually with
 `uv run bootstrap_jump_host.py` if needed.
 
-**not set `management_mac` at all** — in the topology json file.
-
-```jsonc
-// Before (breaks DHCP on the OOB network — don't do this):
-"sno-cluster": {
-    ...
-    "management_mac": "48:B0:2D:00:00:12",
-    ...
-}
-```
+**dont set `management_mac` at all** — in the topology json file.
 
 ```json
 {
@@ -177,14 +168,6 @@ debug DHCP yourself), read it back from the live node/interface via the API
 after the simulation is `ACTIVE` — don't try to pre-declare it in the
 manifest.
 
-**Confirmed fix**, from `oob-mgmt-server`'s DHCP log after dropping
-`management_mac` from the manifest: Air assigned its own MAC to the node's
-interface, and the DHCP reservation matched it immediately —
-
-```
-DHCPACK on 192.168.200.2 to 48:b0:2d:00:00:00
-```
-
 — `sno-cluster` got its real `192.168.200.2` OOB lease on the first try,
 instead of falling back to a link-local address.
 
@@ -209,10 +192,6 @@ entire install lifecycle:
   very next boot naturally falls through to `cdrom` again — same
   `["hd", "cdrom"]` order the whole time.
 
-The reason we settled on this instead of flipping the `boot` field back and
-forth (an earlier iteration of this project's `scripts/02_attach_discovery_iso.py`
-and `scripts/03_boot_to_disk.py` did exactly that): changing `boot`/`cdrom`
-via `node.update()` only ever changes
 *firmware's device preference*, not what's actually on the disk. If `hd`
 already has a real OS on it, setting `boot` to `cdrom`-first and back again
 doesn't un-write that disk — you'd still boot the old install. The only
@@ -408,7 +387,7 @@ stdin), so it's CI-friendly too. Full reference: `scripts/SCRIPTS.md`.
 cd scripts
 export CLUSTER_PROFILE=multinode
 export CLUSTER_NAME=ocp-cluster
-export OCP_VERSION=4.19
+export OCP_VERSION=4.22
 export EXPECTED_HOSTS=3
 # AIR_API_KEY, AI_OFFLINETOKEN, PULL_SECRET_PATH ...
 
@@ -515,10 +494,7 @@ verify) has been run end-to-end against this file and confirmed working.
 
 **Two things don't match the plain `topology-multinode.json` defaults:**
 
-1. **VIP collision.** Default `API_VIP=192.168.200.10` / `INGRESS_VIP=192.168.200.11`
-   are already statically claimed by `ns-spine-02-02` and `ocp-cp-0` in this
-   topology. Use free addresses instead — everything `.2`–`.18` is taken by
-   fabric/compute nodes, so e.g. `API_VIP=192.168.200.19`,
+1. **VIP addresses.** `API_VIP=192.168.200.19`,
    `INGRESS_VIP=192.168.200.20`.
 2. **Role assignment needed a code fix.** `assign_topology_host_roles()`
    used to require *every* node in the topology manifest to match an
@@ -552,7 +528,7 @@ another active simulation first.
 cd scripts
 export CLUSTER_PROFILE=multinode
 export CLUSTER_NAME=ocp-nodpu
-export OCP_VERSION=4.19
+export OCP_VERSION=4.22
 export EXPECTED_HOSTS=3
 export TOPOLOGY_PATH=Topology-NoDPU.json
 export API_VIP=192.168.200.19
@@ -579,7 +555,7 @@ self-resolve); the install itself takes roughly 40–60 minutes.
 cd scripts
 export CLUSTER_PROFILE=multinode
 export CLUSTER_NAME=ocp-nodpu
-export OCP_VERSION=4.19
+export OCP_VERSION=4.22
 export EXPECTED_HOSTS=3
 export TOPOLOGY_PATH=Topology-NoDPU.json
 export API_VIP=192.168.200.19
