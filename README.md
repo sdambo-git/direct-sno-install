@@ -136,8 +136,7 @@ bootstrap automatically (via `expect`). Override the new password with
 ## Important: don't pin `management_mac` in `topology.json`
 
 Don't set the field at all — delete it entirely and let Air assign whatever
-MAC it wants. A stale pinned MAC breaks DHCP on the OOB network (the node
-self-assigns a link-local `169.254.x.x` address instead of its real lease).
+MAC it wants.
 
 ```json
 {
