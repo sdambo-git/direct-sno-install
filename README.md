@@ -343,6 +343,12 @@ uv run 07_install_cluster.py
 uv run 08_verify_cluster.py
 ```
 
+Or run the same command without the `--yes` option:
+
+```bash
+uv run run_cluster.py --all
+```
+
 Same steps and gotchas as Option A, just run one at a time instead of via the
 orchestrator — useful for understanding each stage or stopping to inspect
 state between them. `08_verify_cluster.py` prints the exact tunnel command
