@@ -197,16 +197,6 @@ entire install lifecycle:
   very next boot naturally falls through to `cdrom` again — same
   `["hd", "cdrom"]` order the whole time.
 
-Why not flip the `boot` field instead? Changing `boot`/`cdrom` via
-`node.update()` only ever changes *firmware's device preference*, not what's
-actually on the disk. If `hd`
-already has a real OS on it, setting `boot` to `cdrom`-first and back again
-doesn't un-write that disk — you'd still boot the old install. The only
-thing that reliably gets you back to a fresh discovery boot is reformatting
-the disk itself, which is exactly what `node.rebuild()` does. Once you're
-on the blank-disk pattern, the `boot` list itself never needs to change
-again — only whether the disk behind `hd` is blank or installed.
-
 ## Important: Air images must exist *before* you import the topology
 
 Importing a topology that references missing `cdrom` / `os` image names
@@ -386,9 +376,7 @@ verify) has been run end-to-end against this file and confirmed working.
 **Two things don't match the plain `topology-multinode.json` defaults:**
 
 1. **VIP addresses.** Use `API_VIP=192.168.200.19` and
-   `INGRESS_VIP=192.168.200.20` instead — the defaults collide with
-   addresses already statically claimed by fabric/compute nodes in this
-   topology.
+   `INGRESS_VIP=192.168.200.20`.
 2. **Role assignment needed a code fix.** `assign_topology_host_roles()`
    used to require *every* node in the topology manifest to match an
    Assisted Installer host — fine for `topology-multinode.json` (3 nodes,
