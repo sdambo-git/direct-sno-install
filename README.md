@@ -290,9 +290,23 @@ cd scripts
 uv run import_topology.py ../Topology-NoDPU.json
 ```
 
-Or import `Topology-NoDPU.json` from the Air UI's "Import Simulation" dialog — same result, but you'll need `bootstrap_jump_host.py` or the Air UI to get the jump host SSH command yourself. The sim name will be `Topology-NoDPU` (from the manifest's `name` field).
+All 19 nodes (9 switches + `ocp-cp-0` + 7 Ubuntu nodes + the 2 Air-managed OOB nodes) go `ACTIVE` together, typically within a few minutes.
 
-If the jump host prints "Connection refused" right after import, that's the documented race (SSH not listening yet) — retry in ~15s; `import_topology.py` already does this for you.
+**The jump-host password bootstrap usually fails on this first attempt** with `Connection refused` (`oob-mgmt-server`'s SSH service isn't listening yet when the script tries it) — in practice `import_topology.py` does **not** retry this internally; it prints `skipped: ... (run bootstrap_jump_host.py once the simulation is ACTIVE to set this up later)` and exits. Do exactly that, waiting a short moment first:
+
+```bash
+SIMULATION_NAME=Topology-NoDPU uv run bootstrap_jump_host.py
+```
+
+`SIMULATION_NAME` is required here — without it the script defaults to looking for `sno-cluster` (or whatever `topology.json`'s `name` field is) and fails with `No simulation named 'sno-cluster' found`. On success it prints the ready-to-use jump-host `ssh` command.
+
+Or import `Topology-NoDPU.json` from the Air UI's "Import Simulation" dialog — same result, but you'll need the `bootstrap_jump_host.py` command above (or the Air UI) to get the jump host ready and get its SSH command yourself. The sim name will be `Topology-NoDPU` (from the manifest's `name` field).
+
+**If you've brought this topology up before, clear stale SSH host keys before connecting to `ocp-cp-0`.** Air reuses `192.168.200.11` across simulation re-imports, so a previous run's host key in your `~/.ssh/known_hosts` will make every connection attempt fail silently (`Host key verification failed` under `-v`, but a bare retry loop just sees connection failures with no explanation). Run this once up front if you've used this IP before:
+
+```bash
+ssh-keygen -R 192.168.200.11
+```
 
 ### 2. Wait for IBI prep, then reboot once
 
