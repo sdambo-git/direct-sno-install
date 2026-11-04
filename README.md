@@ -393,7 +393,15 @@ The kubeconfig's `server:` is `https://api.ocp.dsx.air.local:6443` with a cert v
 echo "127.0.0.1 api.ocp.dsx.air.local console-openshift-console.apps.ocp.dsx.air.local" | sudo tee -a /etc/hosts
 ```
 
-Expect `ocp-cp-0` `Ready` with `control-plane,master,worker` within about a minute of the API coming up (briefly `control-plane,master` only at first), and cluster operators `AVAILABLE=True` (give `network`/`console`/`authentication` a minute if they're still settling right after `recert` — that's normal). `dsx-air console --spec examples/nodpu-ibi.yaml` (same `API_FORWARD=192.168.200.11` requirement as above) should open the web console the same way; untested live as part of this pass, but it shares the exact same `api_forward_ip()` resolution as `tunnel`, which is confirmed working.
+Expect `ocp-cp-0` `Ready` with `control-plane,master,worker` within about a minute of the API coming up (briefly `control-plane,master` only at first), and cluster operators `AVAILABLE=True` (give `network`/`console`/`authentication` a minute if they're still settling right after `recert` — that's normal).
+
+**The web console works the same way** — `dsx-air console --spec examples/nodpu-ibi.yaml` (same `API_FORWARD=192.168.200.11` requirement as `tunnel`) correctly writes `console-openshift-console.apps.ocp.dsx.air.local` / `oauth-openshift.apps.ocp.dsx.air.local` / etc. into the jump host's `/etc/hosts` pointed at `192.168.200.11` (SNO shares one IP for API and ingress), then opens a SOCKS+API-forward SSH tunnel and launches Chrome against it:
+
+```bash
+API_FORWARD=192.168.200.11 uv run dsx-air console --spec examples/nodpu-ibi.yaml
+```
+
+Confirmed working headlessly (no GUI available to actually drive Chrome) by running the printed `ssh -N ... -D 127.0.0.1:1080 -L 127.0.0.1:6443:...` command directly and curling through the SOCKS proxy — both `console-openshift-console.apps.ocp.dsx.air.local` and `oauth-openshift.apps.ocp.dsx.air.local` returned `200 OK`. Pass `--print-only` to get the same `ssh`/browser commands without `dsx-air` trying to launch Chrome itself (also useful if Chrome/Chromium isn't on `PATH`).
 
 ## Operate existing `ocp-cluster`
 
