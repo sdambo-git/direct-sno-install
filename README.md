@@ -22,9 +22,7 @@ manual SNO walkthrough lives in [sno.md](sno.md); the 3-node HA profile in
 - [Important: Air images must exist *before* you import the topology](#important-air-images-must-exist-before-you-import-the-topology)
 - [What the orchestrator does, step by step](#what-the-orchestrator-does-step-by-step)
 - [Multinode profile (3-node HA)](multi-node.md#multinode-profile-3-node-ha)
-- [NVIDIA DSX fabric multinode HA (`Topology-NoDPU.json`)](#nvidia-dsx-fabric-multinode-ha-topology-nodpujson)
-  - [Bring it up from scratch](#bring-it-up-from-scratch)
-  - [If host discovery times out with "no hosts yet"](#if-host-discovery-times-out-with-no-hosts-yet)
+- [NVIDIA DSX fabric with an image-based SNO node (`Topology-NoDPU.json`)](#nvidia-dsx-fabric-with-an-image-based-sno-node-topology-nodpujson)
   - [Check it's working with `oc`](#check-its-working-with-oc)
 - [Scripts reference](#scripts-reference)
 - [About `scripts/air_common.py` and `scripts/env_config.py`](#about-scriptsair_commonpy-and-scriptsenv_configpy)
@@ -108,7 +106,7 @@ safe default (shown when you answer, or picked automatically under
 
 For the 3-node HA profile add `CLUSTER_PROFILE=multinode` — see
 [multi-node.md](multi-node.md). For the NVIDIA DSX fabric topology see
-[NVIDIA DSX fabric multinode HA](#nvidia-dsx-fabric-multinode-ha-topology-nodpujson)
+[NVIDIA DSX fabric with an image-based SNO node](#nvidia-dsx-fabric-with-an-image-based-sno-node-topology-nodpujson)
 below. If you'd rather not use `ailib` at all, the Assisted Installer
 console fallback in [sno.md](sno.md) is still valid.
 
@@ -235,231 +233,63 @@ The R&D 3-node HA profile (`topology-multinode.json`) — resource budget,
 quick path, manual steps, and phased validation — now lives in
 [multi-node.md](multi-node.md).
 
-## NVIDIA DSX fabric multinode HA (`Topology-NoDPU.json`)
+## NVIDIA DSX fabric with an image-based SNO node (`Topology-NoDPU.json`)
 
 `Topology-NoDPU.json` (repo root) is a hand-written Air manifest modeling an
 NVIDIA DSX reference fabric: 4 Cumulus VX switches (`ew-leaf-*`,
 `ew-spine-*`), 3 OOB-side switches (`ns-leaf-*`, `ns-spine-*`,
-`ns-oob-leaf-01`), and 8 compute nodes. Three of them —
-`hgx-su01-n01/02/03` — are renamed `ocp-cp-0/1/2` and resized to the same
-HA control-plane spec as `topology-multinode.json` (16 vCPU / 64 GB / 100 GB,
-`os: blank-100g`, discovery-ISO `cdrom`, `boot: [hd, cdrom]`); the rest
-(`hgx-su01-n04`..`n08`) stay plain Ubuntu nodes, unrelated to the OpenShift
-cluster. Every node pins its own `management_interfaces` IP/MAC on
-`192.168.200.0/24`, so OOB addressing is static, not Air DHCP order.
+`ns-oob-leaf-01`), and 8 compute nodes. One of them, `ocp-cp-0` (renamed
+from `hgx-su01-n01`), is configured as an **image-based SNO (IBI)** target —
+`os: blank-300g`, `cdrom: rhcos-ibi-4.22.14`, `boot: [hd, cdrom]`,
+16 vCPU / 64 GB / 300 GB — instead of an Assisted Installer discovery-ISO
+node. The rest (`hgx-su01-n02`..`n08`) are plain Ubuntu nodes, unrelated to
+the OpenShift cluster. Every node pins its own `management_interfaces`
+IP/MAC on `192.168.200.0/24`, so OOB addressing is static, not Air DHCP
+order; `ocp-cp-0` sits at `192.168.200.11`.
 
-This whole sequence (import → discovery → role assignment → install →
-verify) has been run end-to-end against this file and confirmed working.
+**This file used to run 3 control planes via Assisted Installer**
+(`ocp-cp-0/1/2`, all discovery-ISO nodes, `EXPECTED_HOSTS=3`,
+`API_VIP`/`INGRESS_VIP`). That variant is gone: `ocp-cp-1` and `ocp-cp-2`
+were reverted to their original names and plain-Ubuntu spec
+(`hgx-su01-n02`/`hgx-su01-n03`), and `ocp-cp-0` now does a single-node
+image-based install instead of joining a 3-way Assisted cluster. If you
+need the old 3-CP Assisted-HA shape, use the plain `topology-multinode.json`
+profile in [multi-node.md](multi-node.md) instead (same 3-CP flow, without
+the fabric switches) or check out this file as it stood before this change.
 
-**Two things don't match the plain `topology-multinode.json` defaults:**
+**Shared org quota** for the whole fabric (17 nodes: `ocp-cp-0` at
+16 vCPU/64 GB plus 7 small Ubuntu/switch-class nodes) is ~48 vCPU / ~96 GiB —
+check your org's resource budget (`api.organizations.list()[0].usage` vs
+`.cpu`/`.memory`) before importing.
 
-1. **VIP addresses.** Use `API_VIP=192.168.200.19` and
-   `INGRESS_VIP=192.168.200.20`.
-2. **Role assignment needed a code fix.** `assign_topology_host_roles()`
-   used to require *every* node in the topology manifest to match an
-   Assisted Installer host — fine for `topology-multinode.json` (3 nodes,
-   all OCP), but `Topology-NoDPU.json` has 17 nodes and only 3 ever register.
-   `env_config.expected_topology_node_names()` now bounds the expected
-   roster to control-plane names plus only as many worker names as
-   `EXPECTED_HOSTS` calls for, so the other 14 fabric/compute nodes are
-   correctly ignored. This requires `EXPECTED_HOSTS` to be set accurately
-   (`3` here) — if left unset it falls back to counting every manifest node
-   again.
+**This branch's tooling cannot bring this topology up.** `run_cluster.py`
+and the numbered `scripts/00`–`08` here are Assisted-Installer-only — no
+seed image, no Lifecycle Agent, no image-based-config ISO generation. The
+image-based install path (seed generation, live-ISO build,
+`ibi config-image`/`apply-config`) only exists as the `dsx-air` CLI package
+(`scripts/dsx_air/`, `examples/*.yaml`, `ibi/*.yaml`) on the **`dsx-air-cli`**
+branch, which documents this exact topology shape end-to-end under
+"NVIDIA DSX fabric with an IBI node" (its `Topology-NoDPU.json` is now the
+same shape as this one: one IBI `ocp-cp-0` + plain Ubuntu hosts).
 
-**Shared org quota**: the 3×16vCPU/64GB control planes plus the rest of the
-fabric need ~85 vCPU / ~230 GiB. Check your org's resource budget
-(`api.organizations.list()[0].usage` vs `.cpu`/`.memory`) before importing —
-tear down other **ACTIVE** simulations first if there isn't enough headroom,
-the same as the plain multinode profile's quota warning in
-[multi-node.md](multi-node.md), just with a
-bigger ask.
+To bring this file up:
 
-### Bring it up from scratch
-
-If the simulation imports but won't actually boot (stays `INACTIVE` after
-`REQUESTING`, or `sim.sleep` stays `True` even after `sim.start()`), that's
-the org quota being silently exceeded, not a crash — check
-`api.organizations.list()[0].usage` against `.cpu`/`.memory` and free up
-another active simulation first.
-
-#### Option A — `run_cluster.py` orchestrator (recommended)
-
-```bash
-cd scripts
-export CLUSTER_PROFILE=multinode
-export CLUSTER_NAME=ocp-nodpu
-export OCP_VERSION=4.22
-export EXPECTED_HOSTS=3
-export TOPOLOGY_PATH=Topology-NoDPU.json
-export API_VIP=192.168.200.19
-export INGRESS_VIP=192.168.200.20
-export AIR_API_KEY_FILE=~/.config/dsx-air/air-api-key
-export AI_OFFLINETOKEN_FILE=~/.config/dsx-air/ai-offlinetoken
-export PULL_SECRET_PATH=~/.config/dsx-air/pull-secret.json
-
-uv run run_cluster.py --all --yes
-```
-
-This runs the same 11 steps as the plain multinode profile in
-[multi-node.md](multi-node.md) (see `--list`):
-creates the Assisted Installer cluster, builds and uploads a fresh discovery
-ISO, rewrites `cdrom` only on nodes that already have that key (so the
-fabric/switch nodes are left untouched), imports the Air simulation, waits
-for all 3 `ocp-cp-*` hosts to register, assigns `master` to each, configures
-VIPs, and installs. Host discovery can take a few minutes to pick up NTP
-(`Host couldn't synchronize with any NTP server` warnings are expected and
-self-resolve); the install itself takes roughly 40–60 minutes.
-
-#### Option B — manual, step by step
-
-```bash
-cd scripts
-export CLUSTER_PROFILE=multinode
-export CLUSTER_NAME=ocp-nodpu
-export OCP_VERSION=4.22
-export EXPECTED_HOSTS=3
-export TOPOLOGY_PATH=Topology-NoDPU.json
-export API_VIP=192.168.200.19
-export INGRESS_VIP=192.168.200.20
-export AIR_API_KEY_FILE=~/.config/dsx-air/air-api-key
-export AI_OFFLINETOKEN_FILE=~/.config/dsx-air/ai-offlinetoken
-export PULL_SECRET_PATH=~/.config/dsx-air/pull-secret.json
-
-uv run delete_assisted_cluster.py --yes
-uv run 00_create_discovery_iso.py --force --profile multinode
-
-ISO_NAME="dsxair-discovery-$(date +%s)"
-uv run upload_discovery_iso.py --name "$ISO_NAME"
-# Set cdrom to $ISO_NAME on the 3 ocp-cp-* nodes in Topology-NoDPU.json only
-# — they're the only nodes with an existing cdrom key; leave the switches
-# and other Ubuntu nodes untouched.
-uv run upload_blank_disk.py
-uv run verify_topology_alignment.py   # optional sanity check
-uv run 01_create_simulation.py
-uv run 06_wait_for_host_ipv4.py --min-hosts 3 --require-known
-uv run assign_host_roles.py          # optional; 07 also assigns roles
-uv run 07_install_cluster.py --configure-only   # gate before install
-uv run 07_install_cluster.py
-uv run 08_verify_cluster.py
-```
-
-Or run the same command without the `--yes` option:
-
-```bash
-uv run run_cluster.py --all
-```
-
-Same steps and gotchas as Option A, just run one at a time instead of via the
-orchestrator — useful for understanding each stage or stopping to inspect
-state between them. `08_verify_cluster.py` prints the exact tunnel command
-with the real jump-host port/FQDN filled in; use it in the verification
-section below.
-
-### If host discovery times out with "no hosts yet"
-
-```
-Timed out after 900s waiting for 3 host(s) with OOB IPv4 (last seen: no hosts yet).
-Step 7 FAILED: 06_wait_for_host_ipv4.py exited with status 1
-```
-
-`06_wait_for_host_ipv4.py`'s default timeout (`env_config.discovery_timeout_seconds()`)
-now scales with the **total** node count in the topology, not just the
-expected host count — `max(900, 100 * total_nodes)` seconds, so
-`Topology-NoDPU.json`'s 17 nodes get ~28 minutes instead of the flat 15. This
-is because boot contention comes from Air starting *every* VM in the sim
-concurrently (17 here vs. 3 for plain `topology-multinode.json`), not from
-how many of them are actual OCP hosts, so the 3 `ocp-cp-*` VMs take longer to
-register than their host count alone would suggest. Override with
-`DISCOVERY_TIMEOUT=<seconds>` if 28 minutes still isn't enough (e.g. a
-heavily loaded Air org).
-
-If you still hit the timeout, it's not necessarily a real failure, and not a
-reason to restart from step 1 — check whether hosts registered right after
-the cutoff:
-
-```bash
-uv run python -c "
-from assisted_common import get_client, cluster_hosts
-ai = get_client(quiet=False)
-for h in cluster_hosts(ai, 'ocp-nodpu'):
-    print(h.get('requested_hostname'), h.get('status'), h.get('status_info'))
-"
-```
-
-If some/all are missing, retry the wait with the **same full env** as before
-(all of `CLUSTER_PROFILE`, `CLUSTER_NAME`, `TOPOLOGY_PATH`, `EXPECTED_HOSTS`,
-`API_VIP`, `INGRESS_VIP` — a partial env makes this script look for the
-wrong simulation and fail with a confusing "No simulation named
-'ocp-cluster' found"):
-
-```bash
-uv run 06_wait_for_host_ipv4.py --min-hosts 3 --require-known
-```
-
-`No connectivity to the majority of hosts in the cluster` / NTP warnings
-while hosts trickle in are expected — see the NTP note in Option A above,
-they self-resolve. Once discovery succeeds, resume the orchestrator from
-where it left off instead of re-running everything:
-
-```bash
-uv run run_cluster.py --from 8 --yes
-```
+1. Get `scripts/dsx_air/`, `examples/ibi-target.yaml`, and `ibi/` from the
+   `dsx-air-cli` branch — this branch doesn't carry them.
+   `scripts/import_topology.py` here is unchanged from that branch and
+   works as-is for importing `Topology-NoDPU.json`; it has no `dsx_air`
+   dependency.
+2. Follow `dsx-air-cli`'s `README.md` → "NVIDIA DSX fabric with an IBI
+   node" section for the rest: wait for IBI prep to finish, reboot once,
+   build and apply the image-based config, then verify.
 
 ### Check it's working with `oc`
 
-Orchestrator step 11 (`08_verify_cluster.py`) copies `oc` and the kubeconfig
-onto `oob-mgmt-server` and prints the real jump-host port/FQDN for the
-command below. The kubeconfig already uses
-`https://api.ocp-nodpu.dsx.air.local:6443`, so plain `oc get nodes` is
-enough — no `--server` / `--insecure-skip-tls-verify`:
-
-```bash
-# /etc/hosts (once)
-127.0.0.1 api.ocp-nodpu.dsx.air.local
-127.0.0.1 console-openshift-console.apps.ocp-nodpu.dsx.air.local
-127.0.0.1 oauth-openshift.apps.ocp-nodpu.dsx.air.local
-
-# Terminal 1 — leave this running (step 11 fills in <port> and <jump-host-fqdn>)
-ssh -N -L 127.0.0.1:6443:192.168.200.19:6443 -p <port> ubuntu@<jump-host-fqdn>
-
-# Another terminal
-export KUBECONFIG=../.cache/kubeconfig.ocp-nodpu
-oc get nodes
-oc get co
-```
-
-To open the OpenShift **web console**, start a **second** SSH tunnel for the
-**Ingress VIP** — `192.168.200.20` here, not the plain multinode profile's
-`.11` — as the same user as the API tunnel, so SSH still offers the Air UI
-key. Do **not** `sudo ssh` — that runs as root, drops your agent, and often
-offers `id_ed25519` instead. Keep the API tunnel.
-
-If binding 443/80 fails with "Permission denied", allow unprivileged ports
-once, then retry the `ssh` as yourself:
-
-```bash
-sudo sysctl net.ipv4.ip_unprivileged_port_start=80
-
-# Terminal 2 — leave this running too (do not include 6443; that is terminal 1)
-ssh -N \
-  -L 127.0.0.1:443:192.168.200.20:443 \
-  -L 127.0.0.1:80:192.168.200.20:80 \
-  -p <port> ubuntu@<jump-host-fqdn>
-```
-
-Then open `https://console-openshift-console.apps.ocp-nodpu.dsx.air.local`.
-The kubeadmin password is in `.cache/` next to the kubeconfig.
-
-`.cache/kubeconfig.ocp-nodpu` is downloaded automatically by `07_install_cluster.py`
-(`_download_credentials`) once the install completes — no manual copy needed.
-`08_verify_cluster.py` picks the same file by default (`.cache/kubeconfig.$CLUSTER_NAME`),
-but a `KUBECONFIG` env var already set in your shell (e.g. left over from an
-unrelated IBI/SNO run) silently overrides that and makes step 11 copy the
-wrong cluster's kubeconfig to the jump host. `unset KUBECONFIG` before running
-step 11, or point it explicitly at `.cache/kubeconfig.ocp-nodpu`.
-
-Expect `ocp-cp-0`, `ocp-cp-1`, `ocp-cp-2` all `Ready` with `master`, and
-cluster operators `AVAILABLE=True`.
+Same verification as `dsx-air-cli`'s single-IBI-node setup, since the node
+identity and IP didn't change: expect `ocp-cp-0` `Ready` with
+`control-plane,master,worker` at `192.168.200.11`, and cluster operators
+`AVAILABLE=True`. See that branch's README "Use the cluster and the web
+console" step for the exact `oc`/tunnel/console commands.
 
 ## Scripts reference
 
