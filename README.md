@@ -298,7 +298,7 @@ All 19 nodes (9 switches + `ocp-cp-0` + 7 Ubuntu nodes + the 2 Air-managed OOB n
 SIMULATION_NAME=Topology-NoDPU uv run bootstrap_jump_host.py
 ```
 
-`SIMULATION_NAME` is required here — without it the script defaults to looking for `sno-cluster` (or whatever `topology.json`'s `name` field is) and fails with `No simulation named 'sno-cluster' found`. On success it prints the ready-to-use jump-host `ssh` command.
+`SIMULATION_NAME` is required here — without it the script defaults to looking for `sno-cluster` (or whatever `topology.json`'s `name` field is) and fails with `No simulation named 'sno-cluster' found`. On success it prints the ready-to-use jump-host `ssh` command — that's where `<jump-host>:<port>` in steps 2–4 below comes from. The jump host's address changes per Air instance, so re-run this (safe, idempotent) anytime you need it again instead of relying on a stale value from an earlier session.
 
 Or import `Topology-NoDPU.json` from the Air UI's "Import Simulation" dialog — same result, but you'll need the `bootstrap_jump_host.py` command above (or the Air UI) to get the jump host ready and get its SSH command yourself. The sim name will be `Topology-NoDPU` (from the manifest's `name` field).
 
@@ -364,11 +364,25 @@ ssh -o ProxyJump=ubuntu@<jump-host>:<port> core@192.168.200.11 "journalctl -b -f
 
 ### 4. Check it's working
 
+`dsx-air tunnel --spec` can print this for you instead of hand-assembling the `ssh` command — `examples/nodpu-ibi.yaml` is a minimal spec that exists only to give `dsx-air tunnel`/`console` the right `simulation.name` (`examples/ibi-target.yaml` won't work here: its `simulation.name` is `dsx-ibi-target`, a different, unrelated sim). `API_FORWARD` is required every call — SNO otherwise defaults to `192.168.200.2` (the plain `dsx-ibi-target` lab's node), not `.11`:
+
 ```bash
 export KUBECONFIG=$PWD/ibi-config-iso-workdir/auth/kubeconfig
-ssh -f -N -o ProxyCommand="ssh -W %h:%p -p <jump-port> ubuntu@<jump-host>" \
-  -L 127.0.0.1:6443:192.168.200.11:6443 core@192.168.200.11
+API_FORWARD=192.168.200.11 uv run dsx-air tunnel --spec examples/nodpu-ibi.yaml
+# copy/paste the printed ssh -N -L ... command into another terminal and leave it running
+```
 
+This looks up the simulation's *current* jump-host address/port via the Air API, so there's nothing to copy from the original import output. (Its `--check` flag doesn't work here — it fails with an unrelated TLS error in `dsx-air`'s own probe code even when the tunnel and `oc` both work fine; just use the commands below instead of `--check`.)
+
+Or build the same tunnel by hand if you'd rather not touch `dsx-air` (`<jump-host>:<port>` is from step 1):
+
+```bash
+ssh -N -L 127.0.0.1:6443:192.168.200.11:6443 -p <jump-port> ubuntu@<jump-host>
+```
+
+Then, in another terminal:
+
+```bash
 oc get nodes
 oc get co
 ```
@@ -379,7 +393,7 @@ The kubeconfig's `server:` is `https://api.ocp.dsx.air.local:6443` with a cert v
 echo "127.0.0.1 api.ocp.dsx.air.local console-openshift-console.apps.ocp.dsx.air.local" | sudo tee -a /etc/hosts
 ```
 
-Expect `ocp-cp-0` `Ready` with `control-plane,master,worker`, and cluster operators `AVAILABLE=True` (give `network` a minute if it's still rolling out multus — that's normal). `dsx-air tunnel`/`console --spec` don't resolve this sim's node correctly out of the box (same `192.168.200.2` default as `apply-config`, via `dsx_air/air_status.py`'s `api_forward_ip()`); either keep using a manual `ssh -L`, or set `API_FORWARD=192.168.200.11` and point `--spec` at a new spec file with `simulation.name: Topology-NoDPU` to get the CLI tunnel/console working.
+Expect `ocp-cp-0` `Ready` with `control-plane,master,worker` within about a minute of the API coming up (briefly `control-plane,master` only at first), and cluster operators `AVAILABLE=True` (give `network`/`console`/`authentication` a minute if they're still settling right after `recert` — that's normal). `dsx-air console --spec examples/nodpu-ibi.yaml` (same `API_FORWARD=192.168.200.11` requirement as above) should open the web console the same way; untested live as part of this pass, but it shares the exact same `api_forward_ip()` resolution as `tunnel`, which is confirmed working.
 
 ## Operate existing `ocp-cluster`
 

@@ -1,0 +1,18 @@
+# Tunnel/console helper spec for Topology-NoDPU.json's IBI control plane
+# (ocp-cp-0). This is NOT a deploy spec: Topology-NoDPU.json is a
+# hand-written Air manifest, brought up via `scripts/import_topology.py`,
+# never `dsx-air deploy`/`ibi target`. This file exists only so
+# `dsx-air tunnel`/`console --spec` resolve the right simulation name
+# instead of defaulting to `sno-cluster`:
+#
+#   API_FORWARD=192.168.200.11 uv run dsx-air tunnel --spec examples/nodpu-ibi.yaml
+#
+# API_FORWARD is required every time — `api_forward_ip()` defaults SNO to
+# 192.168.200.2 (the plain dsx-ibi-target lab's node), not .11 where
+# ocp-cp-0 actually lives in this topology.
+simulation:
+  name: Topology-NoDPU
+cluster:
+  name: ocp
+  version: "4.22"
+  control_plane: { count: 1, cpu: 16, memory_mb: 65536, disk_gb: 300 }
