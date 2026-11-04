@@ -249,13 +249,13 @@
             "ocp-cp-0": {
                 "cpu": 16,
                 "memory": 65536,
-                "storage": 100,
+                "storage": 300,
                 "nic_model": "virtio",
                 "cpu_mode": "host-passthrough",
                 "cpu_options": [],
                 "secureboot": false,
-                "os": "blank-100g",
-                "cdrom": "dsxair-discovery-1793624567",
+                "os": "blank-300g",
+                "cdrom": "rhcos-ibi-4.22.14",
                 "oob": false,
                 "storage_pci": null,
                 "pxehost": false,
@@ -277,66 +277,68 @@
                     }
                 }
             },
-            "ocp-cp-1": {
-                "cpu": 16,
-                "memory": 65536,
-                "storage": 100,
-                "nic_model": "virtio",
-                "cpu_mode": "host-passthrough",
-                "cpu_options": [],
-                "secureboot": false,
-                "os": "blank-100g",
-                "cdrom": "dsxair-discovery-1793624567",
-                "oob": false,
-                "storage_pci": null,
-                "pxehost": false,
-                "boot": [
-                    "hd",
-                    "cdrom"
-                ],
-                "features": {
-                    "uefi": false
-                },
+            "hgx-su01-n02": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
                 "positioning": {
                     "x": 550,
                     "y": 825
                 },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
                 "management_interfaces": {
                     "eth0": {
                         "ip": "192.168.200.12",
                         "mac_address": "48:B0:2D:00:17:70"
                     }
-                }
-            },
-            "ocp-cp-2": {
-                "cpu": 16,
-                "memory": 65536,
-                "storage": 100,
-                "nic_model": "virtio",
-                "cpu_mode": "host-passthrough",
-                "cpu_options": [],
-                "secureboot": false,
-                "os": "blank-100g",
-                "cdrom": "dsxair-discovery-1793624567",
+                },
                 "oob": false,
                 "storage_pci": null,
                 "pxehost": false,
-                "boot": [
-                    "hd",
-                    "cdrom"
-                ],
+                "boot": "hd",
                 "features": {
                     "uefi": false
-                },
+                }
+            },
+            "hgx-su01-n03": {
+                "cpu": 2,
+                "memory": 2048,
+                "storage": 10,
                 "positioning": {
                     "x": 765,
                     "y": 765
                 },
+                "nic_model": "virtio",
+                "cpu_mode": "custom",
+                "cpu_options": [
+                    "ssse3",
+                    "popcnt",
+                    "sse4.1",
+                    "sse4.2"
+                ],
+                "secureboot": false,
+                "os": "generic/ubuntu2404",
                 "management_interfaces": {
                     "eth0": {
                         "ip": "192.168.200.13",
                         "mac_address": "48:B0:2D:00:19:C8"
                     }
+                },
+                "oob": false,
+                "storage_pci": null,
+                "pxehost": false,
+                "boot": "hd",
+                "features": {
+                    "uefi": false
                 }
             },
             "hgx-su01-n04": {
@@ -893,7 +895,7 @@
                 },
                 {
                     "interface": "ens9",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:4A"
                 }
             ],
@@ -905,7 +907,7 @@
                 },
                 {
                     "interface": "ens11",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:4B"
                 }
             ],
@@ -1133,7 +1135,7 @@
                 },
                 {
                     "interface": "ens13",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:4C"
                 }
             ],
@@ -1145,7 +1147,7 @@
                 },
                 {
                     "interface": "ens15",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:4D"
                 }
             ],
@@ -1157,7 +1159,7 @@
                 },
                 {
                     "interface": "ens9",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:01"
                 }
             ],
@@ -1169,7 +1171,7 @@
                 },
                 {
                     "interface": "ens11",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:03"
                 }
             ],
@@ -1181,7 +1183,7 @@
                 },
                 {
                     "interface": "ens13",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:05"
                 }
             ],
@@ -1193,7 +1195,7 @@
                 },
                 {
                     "interface": "ens15",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:07"
                 }
             ],
@@ -1661,7 +1663,7 @@
                 },
                 {
                     "interface": "ens10",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:4E"
                 }
             ],
@@ -1673,7 +1675,7 @@
                 },
                 {
                     "interface": "ens12",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:4F"
                 }
             ],
@@ -1901,7 +1903,7 @@
                 },
                 {
                     "interface": "ens14",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:50"
                 }
             ],
@@ -1913,7 +1915,7 @@
                 },
                 {
                     "interface": "ens16",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:51"
                 }
             ],
@@ -1925,7 +1927,7 @@
                 },
                 {
                     "interface": "ens10",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:02"
                 }
             ],
@@ -1937,7 +1939,7 @@
                 },
                 {
                     "interface": "ens12",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:04"
                 }
             ],
@@ -1949,7 +1951,7 @@
                 },
                 {
                     "interface": "ens14",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:06"
                 }
             ],
@@ -1961,7 +1963,7 @@
                 },
                 {
                     "interface": "ens16",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:08"
                 }
             ],
@@ -2057,7 +2059,7 @@
                 },
                 {
                     "interface": "ens17",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:52"
                 }
             ],
@@ -2069,7 +2071,7 @@
                 },
                 {
                     "interface": "ens17",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:09"
                 }
             ],
@@ -2537,7 +2539,7 @@
                 },
                 {
                     "interface": "ens18",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:53"
                 }
             ],
@@ -2549,7 +2551,7 @@
                 },
                 {
                     "interface": "ens18",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:0A"
                 }
             ],
@@ -3017,7 +3019,7 @@
                 },
                 {
                     "interface": "ens19",
-                    "node": "ocp-cp-1",
+                    "node": "hgx-su01-n02",
                     "mac": "48:B0:2D:00:3F:54"
                 }
             ],
@@ -3029,7 +3031,7 @@
                 },
                 {
                     "interface": "ens19",
-                    "node": "ocp-cp-2",
+                    "node": "hgx-su01-n03",
                     "mac": "48:B0:2D:00:00:0B"
                 }
             ],
