@@ -31,7 +31,7 @@ manual SNO walkthrough lives in [sno.md](sno.md); the 3-node HA profile in
 
 ## Prerequisites
 - Create redhat account by redhat console link , click on "Register for Red Hat account"
-  [console.redhat.com](console.redhat.com) 
+  [console.redhat.com](https://console.redhat.com) 
 - Red Hat pull secret from redhat console
   [console.redhat.com/openshift/install/pull-secret](console.redhat.com/openshift/install/pull-secret)
 - Red Hat Assisted Installer offline token from
