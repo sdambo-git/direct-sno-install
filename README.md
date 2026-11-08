@@ -11,6 +11,9 @@ This fork supports **SNO** (`topology.json`), an R&D **multinode profile**
 manual SNO walkthrough lives in [sno.md](sno.md); the 3-node HA profile in
 [multi-node.md](multi-node.md).
 
+If you want to install image based sno installation , please use the following:
+[Image Based SNO install](https://github.com/sdambo-git/direct-sno-install/tree/dsx-air-cli#nvidia-dsx-fabric-with-an-ibi-node-topology-nodpujson)
+
 ## Contents
 
 - [Prerequisites](#prerequisites)
