@@ -35,7 +35,8 @@ manual SNO walkthrough lives in [sno.md](sno.md); the 3-node HA profile in
 - Red Hat pull secret from redhat console
   [console.redhat.com/openshift/install/pull-secret](https://console.redhat.com/openshift/install/pull-secret)
 - Red Hat Assisted Installer offline token from
-  [cloud.redhat.com/openshift/token](https://cloud.redhat.com/openshift/token) (for the SaaS API / `ailib`).
+  [console.redhat.com/openshift/token](https://console.redhat.com/openshift/token) (for the SaaS API / `ailib`).
+  click the following `use API tokens to authenticate`
 - An SSH public key to bake into the node.
 - NVIDIA Air / DSX Air API access (`nv-air-sdk`). Generate an NGC Personal
   API Key at [org.ngc.nvidia.com/setup/api-keys](https://org.ngc.nvidia.com/setup/api-keys) with **NVIDIA Air** under
