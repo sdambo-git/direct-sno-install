@@ -30,14 +30,15 @@ manual SNO walkthrough lives in [sno.md](sno.md); the 3-node HA profile in
 - [About `scripts/air_common.py` and `scripts/env_config.py`](#about-scriptsair_commonpy-and-scriptsenv_configpy)
 
 ## Prerequisites
-
-- Red Hat pull secret from
-  `console.redhat.com/openshift/install/pull-secret`.
+- Create redhat account by redhat console link , click on "Register for Red Hat account"
+  [console.redhat.com](console.redhat.com) 
+- Red Hat pull secret from redhat console
+  [console.redhat.com/openshift/install/pull-secret](console.redhat.com/openshift/install/pull-secret)
 - Red Hat Assisted Installer offline token from
-  `cloud.redhat.com/openshift/token` (for the SaaS API / `ailib`).
+  [cloud.redhat.com/openshift/token](cloud.redhat.com/openshift/token) (for the SaaS API / `ailib`).
 - An SSH public key to bake into the node.
 - NVIDIA Air / DSX Air API access (`nv-air-sdk`). Generate an NGC Personal
-  API Key at `org.ngc.nvidia.com/setup/api-keys` with **NVIDIA Air** under
+  API Key at [org.ngc.nvidia.com/setup/api-keys](org.ngc.nvidia.com/setup/api-keys) with **NVIDIA Air** under
   **Services Included**. Your org's `air` role covers simulation/read image
   access; ISO uploads may also need `air-image-uploader`.
 - `qemu-img` on PATH (to create the sparse `blank-100g` disk).
