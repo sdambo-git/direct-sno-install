@@ -6,7 +6,7 @@ Choose the path that matches the result you want:
 
 - **Image-based SNO (IBI):** install a single-node OpenShift cluster from a
   prepared image. This demonstrates the image-based SNO provisioning path,
-  not a multi-node or high-availability cluster. See the
+  not a multi-node or high-availability cluster. With SNO on NVIDIA DSX Air we can't check, run network tests. See the
   [image-based SNO path](https://github.com/sdambo-git/direct-sno-install/tree/dsx-air-cli#nvidia-dsx-fabric-with-an-ibi-node-topology-nodpujson).
 - **3-node HA MNO:** install and verify a full three-node OpenShift cluster
   with three control-plane nodes. This is the multi-node, high-availability
