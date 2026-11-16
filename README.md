@@ -409,6 +409,8 @@ Expect `ocp-cp-0` `Ready` with `control-plane,master,worker` within about a minu
 API_FORWARD=192.168.200.11 uv run dsx-air console --spec examples/nodpu-ibi.yaml
 ```
 
+The printed kubeadmin password is **verified against the cluster's OAuth server** before printing. This matters here: the seed lab and this target share the cluster name `ocp`, so the seed's password (`.cache/kubeadmin-password.ocp`) and the target's (`ibi-config-iso-workdir/auth/kubeadmin-password`) both exist locally — and `dsx-air console` used to print the seed's for this topology (sim name `Topology-NoDPU` didn't match its `ibi-target` heuristic), which the cluster rejects. Set `KUBEADMIN_PASSWORD_FILE` to force a specific password file.
+
 Confirmed working headlessly (no GUI available to actually drive Chrome) by running the printed `ssh -N ... -D 127.0.0.1:1080 -L 127.0.0.1:6443:...` command directly and curling through the SOCKS proxy — both `console-openshift-console.apps.ocp.dsx.air.local` and `oauth-openshift.apps.ocp.dsx.air.local` returned `200 OK`. Pass `--print-only` to get the same `ssh`/browser commands without `dsx-air` trying to launch Chrome itself (also useful if Chrome/Chromium isn't on `PATH`).
 
 ### If the simulation slept for more than ~24 hours

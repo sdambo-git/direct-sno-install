@@ -44,33 +44,115 @@ def _console_url(cluster_name: str, domain: str) -> str:
     return f"https://console-openshift-console.apps.{cluster_name}.{domain}"
 
 
-def _kubeadmin_password(cluster_name: str, *, sim_name: str | None = None) -> str | None:
-    """Return kubeadmin password for the cluster being opened.
+def _kubeadmin_passwords(
+    cluster_name: str, *, sim_name: str | None = None
+) -> list[tuple[str, str]]:
+    """Labeled kubeadmin password candidates, best guess first.
 
-    Seed and IBI target can share ``cluster.name`` (``ocp``). The Assisted
-    download lives in ``.cache/``; the IBI config ISO writes a new password
-    under ``ibi-config-iso-workdir/auth/``.
+    Seed and IBI target clusters can share ``cluster.name`` (``ocp``): the
+    seed's Assisted password is downloaded to ``.cache/kubeadmin-password.*``
+    while the IBI config ISO writes the target's password to
+    ``ibi-config-iso-workdir/auth/kubeadmin-password``. A simulation name
+    containing ``ibi-target``/``nodpu`` prefers the IBI file; anything else
+    (seed labs) prefers the ``.cache`` one. ``KUBEADMIN_PASSWORD_FILE``
+    always wins. Because the heuristic can guess wrong, run_console
+    verifies the candidates against the cluster's OAuth server before
+    printing one.
     """
     root = repo_root()
+    ibi_entry: tuple[str, str] | None = None
     ibi = root / "ibi-config-iso-workdir" / "auth" / "kubeadmin-password"
-    if sim_name and "ibi-target" in sim_name and ibi.is_file():
+    if ibi.is_file():
         text = ibi.read_text().strip()
         if text:
-            return text
+            ibi_entry = ("ibi-config-iso-workdir/auth (IBI target)", text)
+
+    cache_entries: list[tuple[str, str]] = []
     cache = root / ".cache"
-    candidates = (
+    named = [
         cache / "kubeadmin-password",
         cache / f"kubeadmin-password.{cluster_name}",
         cache / f"{cluster_name}-kubeadmin-password",
-    )
-    for path in candidates:
+    ]
+    for path in [*named, *sorted(cache.glob("*kubeadmin*"))]:
         if path.is_file():
-            return path.read_text().strip()
-    for path in sorted(cache.glob("*kubeadmin*")):
+            text = path.read_text().strip()
+            if text and all(pw != text for _, pw in cache_entries):
+                cache_entries.append((f".cache/{path.name}", text))
+
+    override_entry: tuple[str, str] | None = None
+    override = os.environ.get("KUBEADMIN_PASSWORD_FILE", "").strip()
+    if override:
+        path = Path(override).expanduser()
         if path.is_file():
             text = path.read_text().strip()
             if text:
-                return text
+                override_entry = (f"KUBEADMIN_PASSWORD_FILE ({path})", text)
+
+    lowered = (sim_name or "").lower()
+    ibi_first = "ibi-target" in lowered or "nodpu" in lowered
+    ordered: list[tuple[str, str]] = []
+    if override_entry:
+        ordered.append(override_entry)
+    pairs = [ibi_entry, *cache_entries] if ibi_first else [*cache_entries, ibi_entry]
+    ordered.extend(entry for entry in pairs if entry is not None)
+
+    seen: set[str] = set()
+    unique: list[tuple[str, str]] = []
+    for label, pw in ordered:
+        if pw not in seen:
+            seen.add(pw)
+            unique.append((label, pw))
+    return unique
+
+
+def _kubeadmin_password(cluster_name: str, *, sim_name: str | None = None) -> str | None:
+    """Primary kubeadmin password candidate (see _kubeadmin_passwords)."""
+    candidates = _kubeadmin_passwords(cluster_name, sim_name=sim_name)
+    return candidates[0][1] if candidates else None
+
+
+def _password_works(
+    target: tunnel.JumpTarget, oauth_url: str, password: str
+) -> bool | None:
+    """Ask the cluster's OAuth server whether kubeadmin/password is valid.
+
+    Runs curl on the jump host (which resolves the cluster's route names).
+    Returns True/False when the server answered; None when the probe itself
+    failed (SSH/curl) — treat that as "do not know", never as invalid.
+    """
+    remote = (
+        "curl -sk -o /dev/null -w '%{http_code}' --max-time 10 "
+        + shlex.quote(f"-ukubeadmin:{password}")
+        + " "
+        + shlex.quote(oauth_url)
+    )
+    cmd = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "UserKnownHostsFile=/dev/null",
+        "-o",
+        "ConnectTimeout=10",
+        "-p",
+        str(target.port),
+        f"{target.username}@{target.host}",
+        remote,
+    ]
+    try:
+        run = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=30, check=False
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return None
+    code = (run.stdout or "").strip()
+    if code.startswith("3"):
+        return True
+    if code in {"401", "403", "500"}:
+        return False
     return None
 
 
@@ -176,10 +258,36 @@ def run_console(
 
     ssh_cmd = tunnel.build_console_ssh_command(target=target, api_vip=api_vip)
     chrome = _find_chrome()
-    password = _kubeadmin_password(cluster_name, sim_name=sim_name)
     print(f"Console: {url}")
     print("Username: kubeadmin")
-    print(f"Password: {password or '(not found under .cache/)'}")
+    candidates = _kubeadmin_passwords(cluster_name, sim_name=sim_name)
+    if not candidates:
+        print("Password: (no kubeadmin password file found)")
+    else:
+        # Seed and target password files can both exist locally with the
+        # same cluster name; ask the cluster which one is actually valid.
+        oauth_url = (
+            f"https://oauth-openshift.apps.{cluster_name}.{domain}"
+            "/oauth/authorize?response_type=token&client_id=openshift-challenging-client"
+        )
+        chosen = candidates[0]
+        note = "unverified"
+        for label, pw in candidates[:3]:
+            works = _password_works(target, oauth_url, pw)
+            if works is True:
+                if (label, pw) != candidates[0]:
+                    print(
+                        f"# note: heuristic pick was {candidates[0][0]}; "
+                        f"verified {label} instead",
+                        file=sys.stderr,
+                    )
+                chosen = (label, pw)
+                note = "verified against the cluster's OAuth server"
+                break
+            if works is None:
+                note = "could not verify (OAuth probe failed)"
+                break
+        print(f"Password: {chosen[1]}   # {chosen[0]} — {note}")
 
     chrome_line = None
     if chrome is not None:
