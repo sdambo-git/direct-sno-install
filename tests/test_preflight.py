@@ -14,6 +14,7 @@ from dsx_air.preflight import (  # noqa: E402
     node_report_from_output,
     pending_kubelet_csrs,
     run_preflight,
+    wait_for_recovery,
 )
 from dsx_air.tunnel import JumpTarget  # noqa: E402
 
@@ -111,6 +112,7 @@ class RunPreflightTests(unittest.TestCase):
             cert_expired=True,
             pod_count=5,
         )
+        healthy = NodeReport(ssh_ok=True, cert_expired=False, pod_count=93)
         kubeconfig = Path("/fake/kubeconfig")
         with patch("dsx_air.preflight.probe_node", return_value=report):
             with patch(
@@ -120,12 +122,42 @@ class RunPreflightTests(unittest.TestCase):
                     "dsx_air.preflight.approve_kubelet_csrs",
                     return_value=(["csr-1", "csr-2"], None),
                 ) as approve:
-                    result = run_preflight(JUMP, "192.168.200.11", cluster_name="ocp")
+                    with patch(
+                        "dsx_air.preflight.wait_for_recovery",
+                        return_value=(healthy, False),
+                    ) as wait:
+                        result = run_preflight(JUMP, "192.168.200.11", cluster_name="ocp")
         pick.assert_called_once_with("ocp")
         approve.assert_called_once_with(JUMP, "192.168.200.11", kubeconfig)
+        wait.assert_called_once()
         self.assertTrue(result.fixed)
+        self.assertTrue(result.recovered)
         self.assertEqual(result.approved, ("csr-1", "csr-2"))
         self.assertTrue(any("approved 2 pending kubelet CSR(s)" in line for line in result.messages))
+        self.assertTrue(any("recovered" in line for line in result.messages))
+
+    def test_no_wait_skips_recovery_wait(self) -> None:
+        report = NodeReport(ssh_ok=True, cert_expired=True, pod_count=5)
+        kubeconfig = Path("/fake/kubeconfig")
+        with patch("dsx_air.preflight.probe_node", return_value=report):
+            with patch("dsx_air.preflight.admin_kubeconfig", return_value=kubeconfig):
+                with patch(
+                    "dsx_air.preflight.approve_kubelet_csrs",
+                    return_value=(["csr-1"], None),
+                ):
+                    with patch(
+                        "dsx_air.preflight.wait_for_recovery"
+                    ) as wait:
+                        result = run_preflight(
+                            JUMP,
+                            "192.168.200.11",
+                            cluster_name="ocp",
+                            wait_recovery=False,
+                        )
+        wait.assert_not_called()
+        self.assertTrue(result.fixed)
+        self.assertFalse(result.recovered)
+        self.assertTrue(any("still recovering" in line for line in result.messages))
 
     def test_ssh_failure_reports_and_skips(self) -> None:
         report = NodeReport(ssh_ok=False, ssh_error="No route to host")
@@ -143,6 +175,70 @@ class RunPreflightTests(unittest.TestCase):
         self.assertFalse(result.fixed)
         self.assertTrue(result.report.needs_fix)
         self.assertTrue(any("auto-fix" in line for line in result.messages))
+
+
+class WaitForRecoveryTests(unittest.TestCase):
+    def test_returns_once_node_is_healthy(self) -> None:
+        broken = NodeReport(ssh_ok=True, cert_expired=True, pod_count=5)
+        healthy = NodeReport(ssh_ok=True, cert_expired=False, pod_count=93)
+        with patch("dsx_air.preflight.probe_node", side_effect=[broken, healthy]):
+            with patch("dsx_air.preflight.time.sleep") as sleep:
+                report, restarted = wait_for_recovery(
+                    JUMP, "192.168.200.11", poll=0, restart_after=0
+                )
+        sleep.assert_called_once_with(0)
+        self.assertEqual(report, healthy)
+        self.assertFalse(restarted)
+
+    def test_restarts_kubelet_once_when_cert_stays_expired(self) -> None:
+        broken = NodeReport(ssh_ok=True, cert_expired=True, pod_count=5)
+        with patch("dsx_air.preflight.probe_node", return_value=broken):
+            with patch("dsx_air.preflight.time.sleep"):
+                with patch(
+                    "dsx_air.preflight.restart_kubelet", return_value=True
+                ) as restart:
+                    report, restarted = wait_for_recovery(
+                        JUMP,
+                        "192.168.200.11",
+                        poll=0,
+                        timeout=0.05,
+                        restart_after=0.001,
+                    )
+        restart.assert_called_once_with(JUMP, "192.168.200.11")
+        self.assertTrue(restarted)
+        self.assertTrue(report.needs_fix)
+
+    def test_restart_disabled_when_restart_after_zero(self) -> None:
+        broken = NodeReport(ssh_ok=True, cert_expired=True, pod_count=5)
+        with patch("dsx_air.preflight.probe_node", return_value=broken):
+            with patch("dsx_air.preflight.time.sleep"):
+                with patch("dsx_air.preflight.restart_kubelet") as restart:
+                    _, restarted = wait_for_recovery(
+                        JUMP, "192.168.200.11", poll=0, timeout=0.05, restart_after=0
+                    )
+        restart.assert_not_called()
+        self.assertFalse(restarted)
+
+    def test_progress_callback_is_called_and_errors_ignored(self) -> None:
+        broken = NodeReport(ssh_ok=True, cert_expired=True, pod_count=5)
+        healthy = NodeReport(ssh_ok=True, cert_expired=False, pod_count=50)
+        calls: list[float] = []
+
+        def broken_progress(_report, elapsed):
+            calls.append(elapsed)
+            raise RuntimeError("printer exploded")
+
+        with patch("dsx_air.preflight.probe_node", side_effect=[broken, healthy]):
+            with patch("dsx_air.preflight.time.sleep"):
+                report, _ = wait_for_recovery(
+                    JUMP,
+                    "192.168.200.11",
+                    poll=0,
+                    restart_after=0,
+                    progress=broken_progress,
+                )
+        self.assertEqual(report, healthy)
+        self.assertEqual(len(calls), 1)
 
 
 if __name__ == "__main__":

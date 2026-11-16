@@ -83,9 +83,10 @@ def recover_cmd(
 def console_cmd(
     spec: Optional[Path] = typer.Option(None, "--spec", exists=True, readable=True),
     print_only: bool = typer.Option(False, "--print-only", help="Print SSH and Chrome commands; do not exec."),
+    no_wait: bool = typer.Option(False, "--no-wait", help="Fix the node but do not wait for it to recover."),
 ) -> None:
     """SOCKS + host Chrome to the OpenShift Web Console (jump-host /etc/hosts)."""
-    _exit(console.run_console(spec_path=spec, print_only=print_only))
+    _exit(console.run_console(spec_path=spec, print_only=print_only, wait_recovery=not no_wait))
 
 
 @app.command("start")
@@ -115,10 +116,11 @@ def tunnel_app(
     spec: Optional[Path] = typer.Option(None, "--spec", exists=True, readable=True),
     check: bool = typer.Option(False, "--check", help="Probe https://127.0.0.1:6443/version."),
     print_only: bool = typer.Option(False, "--print-only", help="Print the ssh command (default)."),
+    no_wait: bool = typer.Option(False, "--no-wait", help="Fix the node but do not wait for it to recover."),
 ) -> None:
     """Print SSH tunnel command for oc/API."""
     _ = print_only
-    _exit(tunnel_cmd.run_tunnel(check=check, spec_path=spec))
+    _exit(tunnel_cmd.run_tunnel(check=check, spec_path=spec, wait_recovery=not no_wait))
 
 
 @app.command("cluster")

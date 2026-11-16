@@ -113,6 +113,7 @@ def run_console(
     *,
     spec_path: Path | None = None,
     print_only: bool = False,
+    wait_recovery: bool = True,
 ) -> int:
     spec = activate_spec(spec_path)
     if spec is not None:
@@ -157,17 +158,20 @@ def run_console(
     # SNO/IBI targets only: refuse to launch Chrome into a node whose
     # workload pods are dead (e.g. expired kubelet cert after a long Air
     # sleep) — SOCKS comes up fine, every console connection is refused.
+    # The preflight approves the pending kubelet CSRs and waits for the
+    # cluster to self-heal, so Chrome launches only when the console is
+    # actually reachable.
     if not env_config.is_multinode():
-        result = preflight.run_preflight(target, api_vip, cluster_name=cluster_name)
+        result = preflight.run_preflight(
+            target,
+            api_vip,
+            cluster_name=cluster_name,
+            wait_recovery=wait_recovery,
+            progress=lambda r, e: print(preflight.progress_line(r, e), file=sys.stderr),
+        )
         for line in result.messages:
             print(line, file=sys.stderr)
         if result.report.needs_fix:
-            if result.fixed:
-                print(
-                    "Console endpoints are not up yet — workload pods take a few "
-                    "minutes to return after CSR approval. Re-run this command.",
-                    file=sys.stderr,
-                )
             return 1
 
     ssh_cmd = tunnel.build_console_ssh_command(target=target, api_vip=api_vip)

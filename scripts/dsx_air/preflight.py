@@ -38,6 +38,13 @@ KUBELET_CSR_SIGNER = "kubernetes.io/kube-apiserver-client-kubelet"
 # a node whose kubelet cannot authenticate runs only these.
 STATIC_POD_CEILING = 8
 
+# After approving the CSRs, how long to keep polling for recovery, how
+# often, and how long to give kubelet's own (backoff-capped) retry before
+# restarting it once so it claims the signed certificate immediately.
+RECOVERY_TIMEOUT_SECONDS = 360.0
+RECOVERY_POLL_SECONDS = 20.0
+KUBELET_RESTART_AFTER = 120.0
+
 # SSH options for probes: never let a stale laptop known_hosts entry (Air
 # reuses 192.168.200.x across sim re-imports, and host keys change across
 # node rebuilds/reboots) block the check.
@@ -77,11 +84,17 @@ class PreflightResult:
     approved: tuple[str, ...] = ()
     fix_error: str | None = None
     kubeconfig: Path | None = None
+    restarted: bool = False
     messages: tuple[str, ...] = field(default=())
 
     @property
     def fixed(self) -> bool:
         return bool(self.approved)
+
+    @property
+    def recovered(self) -> bool:
+        """True when a fix was applied and the node came back healthy."""
+        return self.fixed and self.report.ssh_ok and not self.report.needs_fix
 
 
 def parse_node_report(text: str) -> dict[str, str]:
@@ -261,12 +274,83 @@ def approve_kubelet_csrs(
         return [], str(exc)
 
 
+def restart_kubelet(jump: JumpTarget, node_ip: str, *, timeout: int = 30) -> bool:
+    """Restart kubelet on the node (clears certificate-retry backoff)."""
+    cmd = [
+        "ssh",
+        *_PROBE_SSH_OPTS,
+        "-o",
+        f"ProxyJump={jump.username}@{jump.host}:{jump.port}",
+        f"{NODE_SSH_USER}@{node_ip}",
+        "sudo systemctl restart kubelet",
+    ]
+    try:
+        run = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout, check=False
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return run.returncode == 0
+
+
+def wait_for_recovery(
+    jump: JumpTarget,
+    node_ip: str,
+    *,
+    timeout: float = RECOVERY_TIMEOUT_SECONDS,
+    poll: float = RECOVERY_POLL_SECONDS,
+    restart_after: float = KUBELET_RESTART_AFTER,
+    progress=None,
+) -> tuple[NodeReport, bool]:
+    """Poll the node until it is healthy again.
+
+    Kubelet's certificate manager retries with a capped backoff, which can
+    leave an approved CSR unclaimed for a long time; once ``restart_after``
+    seconds have passed with the certificate still expired, kubelet is
+    restarted once so it retries immediately. ``restart_after <= 0``
+    disables the restart. Returns ``(final_report, kubelet_restarted)``.
+    """
+    start = time.monotonic()
+    restarted = False
+    while True:
+        report = probe_node(jump, node_ip)
+        if not report.ssh_ok or not report.needs_fix:
+            return report, restarted
+        elapsed = time.monotonic() - start
+        if elapsed >= timeout:
+            return report, restarted
+        if (
+            report.cert_expired
+            and not restarted
+            and restart_after
+            and elapsed >= restart_after
+        ):
+            restarted = restart_kubelet(jump, node_ip)
+        if progress is not None:
+            try:
+                progress(report, elapsed)
+            except Exception:  # progress printing must never break recovery
+                pass
+        time.sleep(poll)
+
+
+def progress_line(report: NodeReport, elapsed: float) -> str:
+    """One status line for the recovery wait, printable by callers."""
+    pods = report.pod_count if report.pod_count is not None else "?"
+    return (
+        f"preflight: waiting for node recovery ({int(elapsed)}s elapsed, "
+        f"{pods} pods running) ..."
+    )
+
+
 def _messages(
     node_ip: str,
     report: NodeReport,
     approved: tuple[str, ...],
     fix_error: str | None,
     kubeconfig: Path | None,
+    *,
+    restarted: bool = False,
 ) -> tuple[str, ...]:
     lines: list[str] = []
     if not report.ssh_ok:
@@ -293,7 +377,21 @@ def _messages(
             else f"notAfter={report.cert_end or 'unknown'}"
         )
         pods = f"{report.pod_count} pods running" if report.pod_count is not None else "pod count unknown"
-        lines.append(f"preflight: node {node_ip} healthy (kubelet cert {cert}, {pods})")
+        if approved:
+            lines.append(
+                f"preflight: approved {len(approved)} pending kubelet CSR(s): "
+                + ", ".join(approved)
+            )
+            if restarted:
+                lines.append(
+                    "preflight: restarted kubelet to clear its certificate-retry backoff"
+                )
+            lines.append(
+                f"preflight: node {node_ip} recovered (kubelet cert {cert}, {pods}) "
+                "— continuing"
+            )
+        else:
+            lines.append(f"preflight: node {node_ip} healthy (kubelet cert {cert}, {pods})")
         return tuple(lines)
 
     lines.append(f"preflight: node {node_ip} problem: {'; '.join(problems)}")
@@ -302,10 +400,13 @@ def _messages(
             f"preflight: approved {len(approved)} pending kubelet CSR(s): "
             + ", ".join(approved)
         )
+        if restarted:
+            lines.append(
+                "preflight: restarted kubelet to clear its certificate-retry backoff"
+            )
         lines.append(
-            "preflight: kubelet re-issues its client certificate and workload pods "
-            "(router/console) take ~2-5 minutes to come back — re-run this command "
-            "if connections are still refused"
+            "preflight: node still recovering — workload pods (router/console) take "
+            "a few minutes to come back; re-run this command shortly"
         )
     elif fix_error:
         lines.append(f"preflight: auto-fix failed: {fix_error}")
@@ -333,8 +434,17 @@ def run_preflight(
     *,
     cluster_name: str | None = None,
     auto_fix: bool = True,
+    wait_recovery: bool = True,
+    timeout: float = RECOVERY_TIMEOUT_SECONDS,
+    progress=None,
 ) -> PreflightResult:
-    """Probe the target node; approve pending kubelet CSRs when it is broken."""
+    """Probe the target node; approve pending kubelet CSRs and wait for recovery.
+
+    When the node is broken and the CSRs were approved, keep polling until
+    the node is healthy again (restarting kubelet once if its certificate
+    retry backoff keeps it from claiming the signed certificate), so the
+    caller can proceed without a manual re-run.
+    """
     report = probe_node(jump, node_ip)
     if not report.ssh_ok or not report.needs_fix or not auto_fix:
         return PreflightResult(
@@ -358,11 +468,25 @@ def run_preflight(
         )
 
     approved, fix_error = approve_kubelet_csrs(jump, node_ip, kubeconfig)
+    restarted = False
+    final_report = report
+    if approved and not fix_error and wait_recovery:
+        final_report, restarted = wait_for_recovery(
+            jump, node_ip, timeout=timeout, progress=progress
+        )
     return PreflightResult(
-        report=report,
+        report=final_report,
         attempted_fix=True,
         approved=tuple(approved),
         fix_error=fix_error,
         kubeconfig=kubeconfig,
-        messages=_messages(node_ip, report, tuple(approved), fix_error, kubeconfig),
+        restarted=restarted,
+        messages=_messages(
+            node_ip,
+            final_report,
+            tuple(approved),
+            fix_error,
+            kubeconfig,
+            restarted=restarted,
+        ),
     )

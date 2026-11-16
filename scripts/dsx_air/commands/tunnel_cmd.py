@@ -14,7 +14,12 @@ import env_config  # noqa: E402
 from upload_discovery_iso import get_api  # noqa: E402
 
 
-def run_tunnel(*, check: bool = False, spec_path: Path | None = None) -> int:
+def run_tunnel(
+    *,
+    check: bool = False,
+    spec_path: Path | None = None,
+    wait_recovery: bool = True,
+) -> int:
     activate_spec(spec_path)
     profile = air_status.profile_info()
     jump_target: tunnel.JumpTarget | None = None
@@ -55,11 +60,15 @@ def run_tunnel(*, check: bool = False, spec_path: Path | None = None) -> int:
     # SNO/IBI targets only: the tunnel forwards straight to the node, so a
     # node that came back from a long Air sleep with an expired kubelet
     # certificate (workload pods dead, 443 refused) is worth catching here.
+    # On a broken node the preflight approves the pending kubelet CSRs and
+    # waits for the cluster to self-heal before printing the command.
     if profile["multinode"] == "no":
         result = preflight.run_preflight(
             jump_target,
             profile["api_forward"],
             cluster_name=profile["cluster_name"],
+            wait_recovery=wait_recovery,
+            progress=lambda r, e: print(preflight.progress_line(r, e), file=sys.stderr),
         )
         for line in result.messages:
             print(line, file=sys.stderr)
