@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from dsx_air import air_status, tunnel
+from dsx_air import air_status, preflight, tunnel
 from dsx_air._bootstrap import ensure_scripts_path, repo_root
 from dsx_air.air_status import AirLookupError
 from dsx_air.spec import activate_spec
@@ -153,6 +153,22 @@ def run_console(
     except SystemExit as exc:
         print(exc, file=sys.stderr)
         return 1
+
+    # SNO/IBI targets only: refuse to launch Chrome into a node whose
+    # workload pods are dead (e.g. expired kubelet cert after a long Air
+    # sleep) — SOCKS comes up fine, every console connection is refused.
+    if not env_config.is_multinode():
+        result = preflight.run_preflight(target, api_vip, cluster_name=cluster_name)
+        for line in result.messages:
+            print(line, file=sys.stderr)
+        if result.report.needs_fix:
+            if result.fixed:
+                print(
+                    "Console endpoints are not up yet — workload pods take a few "
+                    "minutes to return after CSR approval. Re-run this command.",
+                    file=sys.stderr,
+                )
+            return 1
 
     ssh_cmd = tunnel.build_console_ssh_command(target=target, api_vip=api_vip)
     chrome = _find_chrome()

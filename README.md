@@ -372,7 +372,15 @@ API_FORWARD=192.168.200.11 uv run dsx-air tunnel --spec examples/nodpu-ibi.yaml
 # copy/paste the printed ssh -N -L ... command into another terminal and leave it running
 ```
 
-This looks up the simulation's *current* jump-host address/port via the Air API, so there's nothing to copy from the original import output. (Its `--check` flag doesn't work here — it fails with an unrelated TLS error in `dsx-air`'s own probe code even when the tunnel and `oc` both work fine; just use the commands below instead of `--check`.)
+This looks up the simulation's *current* jump-host address/port via the Air API, so there's nothing to copy from the original import output — Air moves simulations between workers (it did exactly that during a Nov 4–16 sleep/wake cycle), so never hardcode the jump-host address from an older session.
+
+Both `tunnel` and `console` also run a **node health preflight** for SNO/IBI targets before doing anything else: they SSH to the node through the jump host and check the kubelet client certificate's expiry and how many pods are running. If the node is broken (see [If the simulation slept for more than ~24 hours](#if-the-simulation-slept-for-more-than-24-hours) below), the preflight automatically approves the pending kubelet CSRs through a temporary API forward and tells you to re-run in a few minutes — `console` refuses to launch Chrome into a dead endpoint; `tunnel` still prints its command but warns on stderr. When the node is fine you just get one line:
+
+```
+preflight: node 192.168.200.11 healthy (kubelet cert valid, 93 pods running)
+```
+
+`--check` works here too (it now picks the IBI kubeconfig from `ibi-config-iso-workdir/auth/` automatically): start the printed tunnel in another terminal, re-run with `--check`, and expect `API probe: ok (oc get --raw /version)`.
 
 Or build the same tunnel by hand if you'd rather not touch `dsx-air` (`<jump-host>:<port>` is from step 1):
 
@@ -402,6 +410,23 @@ API_FORWARD=192.168.200.11 uv run dsx-air console --spec examples/nodpu-ibi.yaml
 ```
 
 Confirmed working headlessly (no GUI available to actually drive Chrome) by running the printed `ssh -N ... -D 127.0.0.1:1080 -L 127.0.0.1:6443:...` command directly and curling through the SOCKS proxy — both `console-openshift-console.apps.ocp.dsx.air.local` and `oauth-openshift.apps.ocp.dsx.air.local` returned `200 OK`. Pass `--print-only` to get the same `ssh`/browser commands without `dsx-air` trying to launch Chrome itself (also useful if Chrome/Chromium isn't on `PATH`).
+
+### If the simulation slept for more than ~24 hours
+
+Air auto-sleeps idle simulations, and the IBI node's kubelet client certificate is only valid for 24 hours (it rotates continuously while the node runs, but nothing rotates it while the VM is suspended). After a long sleep the sim wakes with an expired certificate: kubelet authenticates as `system:anonymous`, cannot register the node or start workload pods, and only the static control-plane pods come back. The API (6443, a static pod) still answers, so tunnels come up fine — but the router never starts, so every console connection on 443 is refused (`channel N: open failed: connect failed: Connection refused` in Chrome's console session), and `oc get pods` shows stale pre-sleep status.
+
+This happened for real after a 12-day sleep (Nov 4–16, 2026). `dsx-air tunnel`/`console` now detect it automatically (see the preflight note in step 4) and fix it by approving the pending kubelet CSRs as kubeadmin — kubelet re-issues its certificate and the cluster self-heals in ~2–5 minutes; re-run the command once the pods are back. If the auto-fix can't run (no `oc` on PATH, or no kubeadmin kubeconfig), the manual equivalent is:
+
+```bash
+# with a tunnel on 6443 running:
+oc --kubeconfig ibi-config-iso-workdir/auth/kubeconfig \
+  --server https://127.0.0.1:6443 --insecure-skip-tls-verify get csr
+oc --kubeconfig ibi-config-iso-workdir/auth/kubeconfig \
+  --server https://127.0.0.1:6443 --insecure-skip-tls-verify \
+  adm certificate approve <pending kubelet CSR names>
+```
+
+Also note: after any sleep/wake the jump host may live on a *different* Air worker with a different hostname/port, and the node's SSH host key may have changed since your last session — always re-resolve the jump host via `dsx-air` (it queries the Air API) and `ssh-keygen -R 192.168.200.11` if SSH complains about a changed key.
 
 ## Operate existing `ocp-cluster`
 

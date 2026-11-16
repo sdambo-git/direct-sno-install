@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from dsx_air import air_status, tunnel
+from dsx_air import air_status, preflight, tunnel
 from dsx_air._bootstrap import ensure_scripts_path
 from dsx_air.air_status import AirLookupError
 from dsx_air.spec import activate_spec
@@ -52,10 +52,25 @@ def run_tunnel(*, check: bool = False, spec_path: Path | None = None) -> int:
             file=sys.stderr,
         )
 
+    # SNO/IBI targets only: the tunnel forwards straight to the node, so a
+    # node that came back from a long Air sleep with an expired kubelet
+    # certificate (workload pods dead, 443 refused) is worth catching here.
+    if profile["multinode"] == "no":
+        result = preflight.run_preflight(
+            jump_target,
+            profile["api_forward"],
+            cluster_name=profile["cluster_name"],
+        )
+        for line in result.messages:
+            print(line, file=sys.stderr)
+
     if not check:
         return 0
 
-    reachable, reason = tunnel.api_reachable()
+    kubeconfig = preflight.admin_kubeconfig(profile["cluster_name"])
+    reachable, reason = tunnel.api_reachable(
+        kubeconfig_file=str(kubeconfig) if kubeconfig else None
+    )
     if reachable:
         print("API probe: ok (oc get --raw /version)")
         return 0
